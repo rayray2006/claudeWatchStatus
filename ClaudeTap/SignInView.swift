@@ -41,6 +41,17 @@ struct SignInView: View {
                 .cornerRadius(10)
                 .padding(.horizontal, 24)
 
+#if DEBUG
+                Button {
+                    Task { await auth.signInDev() }
+                } label: {
+                    Text("Use dev account (test build)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
+#endif
+
                 if let err = auth.lastError {
                     Text(err)
                         .font(.footnote)

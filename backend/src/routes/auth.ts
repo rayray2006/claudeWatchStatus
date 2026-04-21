@@ -60,3 +60,42 @@ authRoutes.delete('/account', requireSession, async (c) => {
     await db.delete(users).where(eq(users.id, userId))
     return c.json({ ok: true })
 })
+
+/**
+ * POST /v1/auth/dev — DEV-ONLY backdoor. Enabled only when env var
+ * `ALLOW_DEV_AUTH=true`. Lets clients without Sign In with Apple (e.g. free
+ * provisioning or local test harnesses) obtain a session token linked to a
+ * deterministic `dev-<name>` user. MUST be disabled before App Store submission.
+ */
+authRoutes.post('/dev', async (c) => {
+    if (process.env.ALLOW_DEV_AUTH !== 'true') {
+        return c.json({ error: 'dev_auth_disabled' }, 403)
+    }
+
+    let body: { name?: string } = {}
+    try { body = await c.req.json() } catch { /* optional */ }
+
+    const rawName = (body.name ?? 'local').toString().toLowerCase()
+    const safeName = rawName.replace(/[^a-z0-9-]/g, '').slice(0, 32) || 'local'
+    const appleSub = `dev-${safeName}`
+
+    const existing = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.appleSub, appleSub))
+        .limit(1)
+
+    let userId: string
+    if (existing[0]) {
+        userId = existing[0].id
+    } else {
+        const inserted = await db
+            .insert(users)
+            .values({ appleSub })
+            .returning({ id: users.id })
+        userId = inserted[0].id
+    }
+
+    const session = await issueSessionToken({ userId })
+    return c.json({ sessionToken: session, userId, appleSub })
+})

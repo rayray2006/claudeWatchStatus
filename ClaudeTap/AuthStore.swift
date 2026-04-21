@@ -42,6 +42,24 @@ final class AuthStore: NSObject {
         }
     }
 
+#if DEBUG
+    /// DEV-only sign-in shortcut for when Sign In with Apple isn't provisioned.
+    /// Produces a real session token tied to a `dev-<name>` user on the backend.
+    func signInDev(name: String = "local") async {
+        inProgress = true
+        defer { inProgress = false }
+        do {
+            let session = try await api.signInDev(name: name)
+            Keychain.save(session, forKey: Self.sessionKey)
+            sessionToken = session
+            WatchConnector.shared.shareSession(session)
+            lastError = nil
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+#endif
+
     func signOut() {
         Keychain.delete(Self.sessionKey)
         sessionToken = nil

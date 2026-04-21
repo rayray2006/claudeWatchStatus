@@ -22,6 +22,17 @@ actor APIClient {
         return response.sessionToken
     }
 
+    /// Dev-only auth bypass. Backend must have ALLOW_DEV_AUTH=true.
+    /// Creates/returns a `dev-<name>` user and a real session token.
+    func signInDev(name: String) async throws -> String {
+        let response: SignInResponse = try await post(
+            "/api/v1/auth/dev",
+            payload: ["name": name],
+            sessionToken: nil,
+        )
+        return response.sessionToken
+    }
+
     func deleteAccount(sessionToken: String) async throws {
         let _: EmptyResponse = try await request("DELETE", path: "/api/v1/auth/account", sessionToken: sessionToken)
     }
