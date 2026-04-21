@@ -164,7 +164,8 @@ pairRoutes.post('/:code/claim', async (c) => {
         .set({ claimed: true, deviceId, apiKeyId: keyRow[0].id })
         .where(eq(pairCodes.code, code))
 
-    const pushUrl = new URL('/api/v1/push', 'https://nudge-backend-psi.vercel.app').toString()
+    // Short alias so users copy-paste a minimal URL into their settings.json.
+    const pushUrl = 'https://ntap.vercel.app/api/v1/push'
 
     return c.json({
         key: key.raw,

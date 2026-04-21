@@ -20,6 +20,10 @@ final class Pairing {
         case idle
         case requesting
         case awaitingUser(code: String, expiresAt: Date)
+        /// Brief (~1.2s) success state shown before we transition to the
+        /// main StatusView — avoids a jarring flip the instant the backend
+        /// confirms the pair.
+        case pairedCelebrate
         case paired
         case failed(String)
     }
@@ -117,9 +121,12 @@ final class Pairing {
             let decoded = try JSONDecoder().decode(PairStatus.self, from: data)
             if decoded.claimed {
                 UserDefaults.standard.set(true, forKey: Self.pairedDefaultsKey)
-                stage = .paired
                 pollTask?.cancel()
                 pollTask = nil
+                // Brief celebration, then flip to the main UI.
+                stage = .pairedCelebrate
+                try? await Task.sleep(for: .milliseconds(1200))
+                stage = .paired
             }
         } catch {
             // transient — keep polling

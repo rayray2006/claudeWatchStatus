@@ -2,174 +2,459 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0b0b0e">
     <title>Pair your Nudge watch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
         :root {
             color-scheme: dark;
-            --bg: #0c0c10;
-            --panel: #17171d;
-            --panel-2: #1f1f27;
-            --text: #e8e8ef;
-            --muted: #8a8a99;
-            --accent: #d98a5a;
-            --ok: #4caf7e;
-            --err: #e05050;
-            --border: #2a2a33;
+            --bg: #0b0b0e;
+            --bg-elevated: #131318;
+            --bg-sunken: #08080b;
+            --panel: #16161c;
+            --panel-2: #1d1d25;
+            --border: #2a2a34;
+            --border-strong: #3a3a47;
+            --text: #f2f2f7;
+            --muted: #9a9aa8;
+            --muted-2: #6e6e7e;
+            --accent: #f08a4d;
+            --accent-hover: #f39d6a;
+            --ok: #5ac37f;
+            --err: #f05a5a;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
         }
+        * { box-sizing: border-box; }
         html, body {
             margin: 0;
             padding: 0;
             background: var(--bg);
             color: var(--text);
-            font: 16px -apple-system, system-ui, "SF Pro Text", sans-serif;
+            font-family: var(--font-sans);
+            font-size: 15px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
             min-height: 100vh;
         }
-        .wrap {
-            max-width: 560px;
-            margin: 48px auto;
-            padding: 0 24px;
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100dvh;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         }
-        h1 {
-            font-size: 32px;
-            margin: 0 0 4px;
+        .container {
+            width: 100%;
+            max-width: 520px;
+            margin: 0 auto;
+            padding: 40px 20px 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        header.brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 36px;
+        }
+        .logo {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
+            background: radial-gradient(circle at 30% 30%, #f5ab7a, var(--accent));
+            display: grid;
+            place-items: center;
+            color: #1a0f07;
+            font-weight: 800;
+            font-size: 20px;
             letter-spacing: -0.02em;
         }
-        .subtitle { color: var(--muted); margin: 0 0 32px; }
+        .brandname {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+        h1 {
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin: 0 0 10px;
+        }
+        p.lede {
+            font-size: 16px;
+            color: var(--muted);
+            margin: 0 0 28px;
+            max-width: 40ch;
+        }
         .panel {
             background: var(--panel);
-            border-radius: 14px;
-            padding: 24px;
-            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
         }
-        label {
+        label.field-label {
             display: block;
-            color: var(--muted);
-            font-size: 12px;
+            color: var(--muted-2);
+            font-size: 11px;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.12em;
             margin-bottom: 10px;
         }
-        input {
+        input.code {
             width: 100%;
-            box-sizing: border-box;
-            padding: 14px 16px;
-            background: var(--panel-2);
+            background: var(--bg-sunken);
             color: var(--text);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            font: 600 22px/1 ui-monospaced, "SF Mono", monospace;
-            letter-spacing: 0.4em;
+            border-radius: 12px;
+            padding: 18px 16px;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 26px;
+            letter-spacing: 0.55em;
             text-align: center;
             text-transform: uppercase;
             outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-        input:focus { border-color: var(--accent); }
-        button {
+        input.code::placeholder { color: var(--muted-2); letter-spacing: 0.45em; }
+        input.code:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(240, 138, 77, 0.18);
+        }
+        button.primary {
+            width: 100%;
+            margin-top: 14px;
             appearance: none;
             border: 0;
-            padding: 14px 20px;
-            border-radius: 10px;
             background: var(--accent);
-            color: #0c0c10;
-            font: 600 15px -apple-system, system-ui, sans-serif;
+            color: #1a0f07;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 15px;
+            padding: 14px 18px;
+            border-radius: 12px;
             cursor: pointer;
-            transition: transform 0.08s ease, opacity 0.15s;
-            width: 100%;
-            margin-top: 12px;
+            transition: background 0.12s, transform 0.08s;
         }
-        button:active { transform: scale(0.98); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+        button.primary:active:not(:disabled) { transform: scale(0.985); }
+        button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
         button.ghost {
+            appearance: none;
             background: var(--panel-2);
             color: var(--text);
-        }
-        pre {
-            background: var(--panel-2);
-            padding: 14px 16px;
+            border: 1px solid var(--border);
+            font-family: inherit;
+            font-weight: 500;
+            font-size: 14px;
+            padding: 10px 14px;
             border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.12s, border-color 0.12s;
+        }
+        button.ghost:hover { background: var(--panel); border-color: var(--border-strong); }
+        .err {
+            color: var(--err);
+            font-size: 13px;
+            margin-top: 12px;
+            min-height: 18px;
+        }
+        /* Success / instructions */
+        .success-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+        .check {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(90, 195, 127, 0.15);
+            display: grid;
+            place-items: center;
+            color: var(--ok);
+            font-size: 20px;
+            flex: 0 0 36px;
+        }
+        .tabs {
+            display: flex;
+            background: var(--bg-sunken);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 4px;
+            margin: 22px 0 14px;
+            gap: 4px;
+        }
+        .tabs button {
+            flex: 1;
+            appearance: none;
+            background: transparent;
+            color: var(--muted);
+            border: 0;
+            font-family: inherit;
+            font-weight: 500;
+            font-size: 13px;
+            padding: 9px 10px;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: background 0.12s, color 0.12s;
+        }
+        .tabs button.active {
+            background: var(--panel);
+            color: var(--text);
+            box-shadow: 0 1px 0 rgba(255,255,255,0.03), 0 2px 6px rgba(0,0,0,0.25);
+        }
+        .snippet-wrap {
+            position: relative;
+            background: var(--bg-sunken);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        pre.snippet {
+            margin: 0;
+            padding: 16px;
+            padding-right: 80px;
             overflow-x: auto;
-            font: 12px ui-monospace, "SF Mono", monospace;
-            line-height: 1.5;
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+            line-height: 1.6;
+            color: #c7c7d1;
             white-space: pre;
             tab-size: 2;
         }
-        .err { color: var(--err); font-size: 13px; margin-top: 8px; }
-        .ok { color: var(--ok); font-size: 13px; margin-top: 8px; }
-        .row { display: flex; gap: 10px; }
-        .row button { flex: 1; }
-        .hint { color: var(--muted); font-size: 13px; margin-top: 12px; }
-        .step { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin: 8px 0 4px; }
-        .mono { font-family: ui-monospace, "SF Mono", monospace; }
+        pre.snippet code.agent {
+            white-space: pre-wrap;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            appearance: none;
+            background: var(--panel-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 6px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.12s, border-color 0.12s;
+        }
+        .copy-btn:hover { background: var(--panel); border-color: var(--border-strong); }
+        .copy-btn.copied { background: rgba(90, 195, 127, 0.15); color: var(--ok); border-color: rgba(90, 195, 127, 0.3); }
+        .step-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted-2);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin: 22px 0 8px;
+        }
+        .note {
+            font-size: 13px;
+            color: var(--muted);
+            margin: 8px 0 0;
+        }
+        .code-inline {
+            font-family: var(--font-mono);
+            font-size: 12.5px;
+            background: var(--bg-sunken);
+            padding: 2px 6px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+        }
+        .test-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        @media (max-width: 420px) {
+            .test-row { grid-template-columns: 1fr; }
+            h1 { font-size: 28px; }
+        }
+        .test-status {
+            font-size: 13px;
+            color: var(--muted);
+            margin-top: 10px;
+            min-height: 18px;
+        }
+        .test-status.ok { color: var(--ok); }
+        .test-status.err { color: var(--err); }
+        footer {
+            padding: 24px 20px 32px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--muted-2);
+        }
+        footer a {
+            color: var(--muted);
+            text-decoration: none;
+            border-bottom: 1px dashed var(--border-strong);
+            padding-bottom: 1px;
+            transition: color 0.12s;
+        }
+        footer a:hover { color: var(--text); }
+        .tip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        /* Stage transitions */
+        .stage { animation: fadeIn 0.28s ease-out; }
+        .stage.hidden { display: none; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
-    <div class="wrap">
-        <h1>Nudge</h1>
-        <p class="subtitle">Pair your Apple Watch with Claude Code.</p>
+    <div class="container">
+        <header class="brand">
+            <div class="logo">✦</div>
+            <div class="brandname">Nudge</div>
+        </header>
 
-        <div id="stage-enter" class="panel">
-            <label for="code">Code from your watch</label>
-            <input id="code" maxlength="6" autofocus placeholder="ABC123">
-            <button id="submit">Pair</button>
-            <p id="error" class="err" style="display: none"></p>
-        </div>
+        <!-- STAGE 1: enter code -->
+        <section id="stage-pair" class="stage">
+            <h1>Pair your watch</h1>
+            <p class="lede">Enter the six-character code shown on your Apple Watch.</p>
+            <div class="panel">
+                <label class="field-label" for="code">Pairing code</label>
+                <input id="code" class="code" maxlength="6" autofocus autocomplete="off" autocapitalize="characters" inputmode="text" placeholder="——————">
+                <button id="submit" class="primary">Register</button>
+                <p id="error" class="err"></p>
+            </div>
+        </section>
 
-        <div id="stage-done" class="panel" style="display: none">
-            <p class="step">1. Copy this snippet</p>
-            <pre id="snippet"></pre>
-            <button id="copy">Copy to clipboard</button>
+        <!-- STAGE 2: instructions -->
+        <section id="stage-done" class="stage hidden">
+            <div class="success-head">
+                <div class="check">✓</div>
+                <div>
+                    <h1 style="font-size: 22px; margin: 0;">Watch connected</h1>
+                    <p class="note" style="margin: 2px 0 0;">Two ways to finish setup.</p>
+                </div>
+            </div>
 
-            <p class="step" style="margin-top: 28px">2. Paste into your Claude Code config</p>
-            <p class="hint">Open <span class="mono">~/.claude/settings.json</span>, paste the snippet, merging with any existing <span class="mono">hooks</span> block, save.</p>
+            <div class="tabs" role="tablist">
+                <button id="tab-agent" class="active" role="tab">Ask your AI agent</button>
+                <button id="tab-manual" role="tab">Paste manually</button>
+            </div>
 
-            <p class="step" style="margin-top: 28px">3. Test</p>
-            <div class="row">
+            <!-- Agent option -->
+            <div id="pane-agent">
+                <div class="step-title">Step 1 · copy this prompt</div>
+                <div class="snippet-wrap">
+                    <pre class="snippet"><code id="agent-prompt" class="agent"></code></pre>
+                    <button class="copy-btn" data-copy="agent-prompt">Copy</button>
+                </div>
+                <div class="step-title">Step 2 · paste into Claude Code</div>
+                <p class="note">Run <span class="code-inline">claude</span> in your terminal, then paste. It'll edit <span class="code-inline">~/.claude/settings.json</span> for you.</p>
+            </div>
+
+            <!-- Manual option -->
+            <div id="pane-manual" style="display: none;">
+                <div class="step-title">Step 1 · copy this snippet</div>
+                <div class="snippet-wrap">
+                    <pre class="snippet"><code id="manual-snippet"></code></pre>
+                    <button class="copy-btn" data-copy="manual-snippet">Copy</button>
+                </div>
+                <div class="step-title">Step 2 · paste into your settings</div>
+                <p class="note">Open <span class="code-inline">~/.claude/settings.json</span> and merge into the <span class="code-inline">hooks</span> block (create one if needed).</p>
+            </div>
+
+            <div class="step-title">Step 3 · test</div>
+            <div class="test-row">
                 <button class="ghost" data-status="working">Send working</button>
                 <button class="ghost" data-status="done">Send done</button>
             </div>
-            <p id="test-status" class="ok" style="display: none"></p>
-        </div>
+            <p id="test-status" class="test-status"></p>
+        </section>
     </div>
+
+    <footer>
+        Free forever. If Nudge makes your week better, <a class="tip" href="https://buymeacoffee.com/nudgeapp" target="_blank" rel="noopener">buy me a coffee ☕</a>.
+    </footer>
 
     <script>
         const API = '/api/v1'
 
-        const $code = document.getElementById('code')
-        const $submit = document.getElementById('submit')
-        const $error = document.getElementById('error')
-        const $stageEnter = document.getElementById('stage-enter')
-        const $stageDone = document.getElementById('stage-done')
-        const $snippet = document.getElementById('snippet')
-        const $copy = document.getElementById('copy')
-        const $testStatus = document.getElementById('test-status')
+        const $ = (id) => document.getElementById(id)
+        const $code = $('code')
+        const $submit = $('submit')
+        const $error = $('error')
+        const $stagePair = $('stage-pair')
+        const $stageDone = $('stage-done')
+        const $agentPrompt = $('agent-prompt')
+        const $manualSnippet = $('manual-snippet')
+        const $tabAgent = $('tab-agent')
+        const $tabManual = $('tab-manual')
+        const $paneAgent = $('pane-agent')
+        const $paneManual = $('pane-manual')
+        const $testStatus = $('test-status')
 
         let apiKey = null
+        let pushUrl = null
 
         function showError(msg) {
             $error.textContent = msg
-            $error.style.display = 'block'
         }
 
-        function buildSnippet(key, pushUrl) {
-            const s = (status) =>
-                `curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"${status}\\"}' ${pushUrl} >/dev/null 2>&1 &`
+        function manualSnippet(key, url) {
+            const line = (status) =>
+                `curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"${status}\\"}' ${url} >/dev/null 2>&1 &`
             return `{
   "hooks": {
     "PreToolUse": [{
       "type": "command",
-      "command": "${s('working')}"
+      "command": "${line('working')}"
     }],
     "Stop": [{
       "type": "command",
-      "command": "${s('done')}"
+      "command": "${line('done')}"
     }],
     "Notification": [{
       "type": "command",
-      "command": "${s('approval')}"
+      "command": "${line('approval')}"
     }]
   }
 }`
+        }
+
+        function agentPrompt(key, url) {
+            return `Set up Nudge wrist notifications for Claude Code on this machine.
+
+Edit ~/.claude/settings.json (create it if it doesn't exist). Merge these three hooks into the existing "hooks" object, preserving any other hooks already there. If one of these hook names already exists, append the new command instead of replacing it.
+
+{
+  "hooks": {
+    "PreToolUse": [{
+      "type": "command",
+      "command": "curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"working\\"}' ${url} >/dev/null 2>&1 &"
+    }],
+    "Stop": [{
+      "type": "command",
+      "command": "curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"done\\"}' ${url} >/dev/null 2>&1 &"
+    }],
+    "Notification": [{
+      "type": "command",
+      "command": "curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"approval\\"}' ${url} >/dev/null 2>&1 &"
+    }]
+  }
+}
+
+Then confirm the file is valid JSON and tell me "done".`
         }
 
         async function pair() {
@@ -179,7 +464,7 @@
                 return
             }
             $submit.disabled = true
-            $error.style.display = 'none'
+            showError('')
 
             try {
                 const res = await fetch(`${API}/pair/${code}/claim`, { method: 'POST' })
@@ -189,12 +474,17 @@
                 }
                 const data = await res.json()
                 apiKey = data.key
-                $snippet.textContent = buildSnippet(data.key, data.pushUrl)
-                $stageEnter.style.display = 'none'
-                $stageDone.style.display = 'block'
+                pushUrl = data.pushUrl
+                $agentPrompt.textContent = agentPrompt(data.key, data.pushUrl)
+                $manualSnippet.textContent = manualSnippet(data.key, data.pushUrl)
+                $stagePair.classList.add('hidden')
+                $stageDone.classList.remove('hidden')
+                // Trigger fade-in animation
+                $stageDone.style.animation = 'none'
+                requestAnimationFrame(() => ($stageDone.style.animation = ''))
             } catch (err) {
                 if (err.message === 'invalid_or_expired') {
-                    showError('Code is invalid or expired. Generate a new one on your watch.')
+                    showError('Code invalid or expired. Generate a new one on your watch.')
                 } else {
                     showError(err.message)
                 }
@@ -208,18 +498,34 @@
             $code.value = $code.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
         })
 
-        $copy.addEventListener('click', async () => {
-            await navigator.clipboard.writeText($snippet.textContent)
-            $copy.textContent = 'Copied ✓'
-            setTimeout(() => ($copy.textContent = 'Copy to clipboard'), 1500)
+        $tabAgent.addEventListener('click', () => {
+            $tabAgent.classList.add('active'); $tabManual.classList.remove('active')
+            $paneAgent.style.display = ''; $paneManual.style.display = 'none'
+        })
+        $tabManual.addEventListener('click', () => {
+            $tabManual.classList.add('active'); $tabAgent.classList.remove('active')
+            $paneManual.style.display = ''; $paneAgent.style.display = 'none'
+        })
+
+        document.querySelectorAll('.copy-btn').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const target = document.getElementById(btn.dataset.copy)
+                await navigator.clipboard.writeText(target.textContent)
+                btn.textContent = 'Copied ✓'
+                btn.classList.add('copied')
+                setTimeout(() => {
+                    btn.textContent = 'Copy'
+                    btn.classList.remove('copied')
+                }, 1800)
+            })
         })
 
         document.querySelectorAll('button[data-status]').forEach((btn) => {
             btn.addEventListener('click', async () => {
                 if (!apiKey) return
-                const status = btn.dataset.status
                 btn.disabled = true
-                $testStatus.style.display = 'none'
+                $testStatus.textContent = `Sending ${btn.dataset.status}…`
+                $testStatus.className = 'test-status'
                 try {
                     const res = await fetch(`${API}/push`, {
                         method: 'POST',
@@ -227,23 +533,27 @@
                             'content-type': 'application/json',
                             authorization: `Bearer ${apiKey}`,
                         },
-                        body: JSON.stringify({ status }),
+                        body: JSON.stringify({ status: btn.dataset.status }),
                     })
                     const data = await res.json()
-                    $testStatus.textContent = `Delivered to ${data.delivered} device(s).`
-                    $testStatus.style.display = 'block'
+                    if (data.delivered > 0) {
+                        $testStatus.textContent = `Delivered ✓ (${data.delivered} device)`
+                        $testStatus.className = 'test-status ok'
+                    } else {
+                        $testStatus.textContent = `Delivered 0. ${data.error || ''}`
+                        $testStatus.className = 'test-status err'
+                    }
                 } catch (err) {
                     $testStatus.textContent = `Failed: ${err.message}`
-                    $testStatus.style.color = 'var(--err)'
-                    $testStatus.style.display = 'block'
+                    $testStatus.className = 'test-status err'
                 } finally {
                     btn.disabled = false
                 }
             })
         })
 
-        // Allow ?code=ABC123 in URL for convenience.
-        const urlCode = new URLSearchParams(window.location.search).get('code')
+        // Convenience: ?code=ABC123 prefills and submits.
+        const urlCode = new URLSearchParams(location.search).get('code')
         if (urlCode) {
             $code.value = urlCode.toUpperCase()
             pair()
