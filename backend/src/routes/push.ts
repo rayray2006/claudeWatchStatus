@@ -41,6 +41,7 @@ pushRoutes.post('/', requireApiKey, async (c) => {
 
     let delivered = 0
     let invalidated = 0
+    const errors: string[] = []
 
     await Promise.all(
         targets.map(async (d) => {
@@ -60,6 +61,7 @@ pushRoutes.post('/', requireApiKey, async (c) => {
                 return
             }
 
+            errors.push(`${result.httpStatus}:${result.reason ?? 'unknown'}`)
             if (isPermanentFailure(result)) {
                 invalidated++
                 db.update(devices)
@@ -78,16 +80,19 @@ pushRoutes.post('/', requireApiKey, async (c) => {
             )
             if (retry.ok) {
                 delivered++
-            } else if (isPermanentFailure(retry)) {
-                invalidated++
-                db.update(devices)
-                    .set({ isActive: false })
-                    .where(eq(devices.id, d.id))
-                    .execute()
-                    .catch(() => {/* ignore */})
+            } else {
+                errors.push(`retry:${retry.httpStatus}:${retry.reason ?? 'unknown'}`)
+                if (isPermanentFailure(retry)) {
+                    invalidated++
+                    db.update(devices)
+                        .set({ isActive: false })
+                        .where(eq(devices.id, d.id))
+                        .execute()
+                        .catch(() => {/* ignore */})
+                }
             }
         }),
     )
 
-    return c.json({ delivered, invalidated })
+    return c.json({ delivered, invalidated, errors })
 })

@@ -1,4 +1,3 @@
-import 'dotenv/config'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,9 +25,8 @@ async function main() {
         )
     `
 
-    const applied = new Set(
-        (await sql`select name from schema_migrations`).map((r: { name: string }) => r.name),
-    )
+    const rows = (await sql`select name from schema_migrations`) as Array<{ name: string }>
+    const applied = new Set(rows.map((r) => r.name))
 
     const files = (await readdir(migrationsDir))
         .filter((f) => f.endsWith('.sql'))
@@ -45,8 +43,10 @@ async function main() {
             .map((s) => s.trim())
             .filter((s) => s.length > 0)
         for (const stmt of statements) {
+            // neon() returns a tagged-template function; call it with a single
+            // element array to execute raw SQL strings.
             // eslint-disable-next-line no-await-in-loop
-            await sql.query(stmt)
+            await sql([stmt] as unknown as TemplateStringsArray)
         }
         await sql`insert into schema_migrations (name) values (${file})`
         console.log('done.')
