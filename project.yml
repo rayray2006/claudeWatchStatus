@@ -32,6 +32,10 @@ targets:
         CFBundleDisplayName: Nudge
         WKApplication: true
         WKRunsIndependentlyOfCompanionApp: true
+        # watchOS 26's MobileInstaller still looks for this key even on
+        # standalone apps. Self-reference keeps it happy without actually
+        # requiring an iPhone-side companion to exist.
+        WKCompanionAppBundleIdentifier: com.fm.nudge
         WKBackgroundModes:
           - remote-notification
     settings:
