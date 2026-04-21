@@ -21,18 +21,12 @@ struct ComplicationEntryView: View {
 
     // MARK: - Circular Complication (primary)
     private var circularView: some View {
-        Image(assetName)
-            .resizable()
-            .interpolation(.high)
-            .aspectRatio(contentMode: .fit)
+        ClaudeSpriteView(state: entry.state)
     }
 
     // MARK: - Corner Complication
     private var cornerView: some View {
-        Image(assetName)
-            .resizable()
-            .interpolation(.high)
-            .aspectRatio(contentMode: .fit)
+        ClaudeSpriteView(state: entry.state)
             .widgetLabel {
                 Text(entry.state.label)
             }
