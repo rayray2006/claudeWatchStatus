@@ -29,6 +29,7 @@ targets:
     info:
       path: ClaudeTapWatch/Info.plist
       properties:
+        CFBundleDisplayName: Nudge
         WKApplication: true
         WKRunsIndependentlyOfCompanionApp: true
         WKBackgroundModes:
