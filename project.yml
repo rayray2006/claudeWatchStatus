@@ -79,8 +79,6 @@ schemes:
     build:
       targets:
         ClaudeTapWatch: all
-        ClaudeTapComplication: all
-        ClaudeTapNotificationService: all
     run:
       config: Debug
     test:
