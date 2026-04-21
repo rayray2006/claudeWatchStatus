@@ -35,7 +35,7 @@ targets:
           - remote-notification
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp
+        PRODUCT_BUNDLE_IDENTIFIER: com.fm.nudge
         CODE_SIGN_ENTITLEMENTS: ClaudeTapWatch/ClaudeTapWatch.entitlements
 
   ClaudeTapComplication:
@@ -52,7 +52,7 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp.widget
+        PRODUCT_BUNDLE_IDENTIFIER: com.fm.nudge.widget
         CODE_SIGN_ENTITLEMENTS: ClaudeTapComplication/ClaudeTapComplication.entitlements
 
   ClaudeTapNotificationService:
@@ -70,7 +70,7 @@ targets:
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp.notifservice
+        PRODUCT_BUNDLE_IDENTIFIER: com.fm.nudge.notifservice
         CODE_SIGN_ENTITLEMENTS: ClaudeTapNotificationService/ClaudeTapNotificationService.entitlements
 
 schemes:

@@ -69,7 +69,7 @@ final class Pairing {
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         let body: [String: String] = [
             "apnsToken": apnsToken,
-            "bundleId": "com.fm.claudetap.watchapp",
+            "bundleId": "com.fm.nudge",
             "environment": BackendConfig.apnsEnvironment,
         ]
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
