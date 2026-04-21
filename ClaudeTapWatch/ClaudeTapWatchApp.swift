@@ -14,7 +14,8 @@ struct ClaudeTapWatchApp: App {
     }
 }
 
-class ExtensionDelegate: NSObject, WKApplicationDelegate {
+@MainActor
+final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     func applicationDidFinishLaunching() {
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
@@ -23,7 +24,13 @@ class ExtensionDelegate: NSObject, WKApplicationDelegate {
                 WKExtension.shared().registerForRemoteNotifications()
             }
         }
-        // Recover state from any notifications delivered while the app was suspended
+        // Recover state from any notifications delivered while the app was suspended.
+        Task { await StateStore.shared.syncFromDeliveredNotifications() }
+    }
+
+    /// Fires before `scenePhase` propagates to SwiftUI — gives us the earliest
+    /// possible hook to sync state on every app resume.
+    func applicationWillEnterForeground() {
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
     }
 
@@ -33,7 +40,7 @@ class ExtensionDelegate: NSObject, WKApplicationDelegate {
         UserDefaults.standard.set(true, forKey: "apns_registered")
     }
 
-    func didFailToRegisterForRemoteNotifications(withError error: Error) {
+    func didFailToRegisterForRemoteNotificationsWithError(_ error: Error) {
         print("APNS_REGISTER_FAILED: \(error.localizedDescription)")
     }
 
@@ -43,15 +50,13 @@ class ExtensionDelegate: NSObject, WKApplicationDelegate {
         if let status = userInfo["status"] as? String,
            let state = TapState(rawValue: status) {
             StateStore.shared.updateState(state)
-            await MainActor.run {
-                // Schedule background refresh as a backup trigger for the widget
-                WKExtension.shared().scheduleBackgroundRefresh(
-                    withPreferredDate: Date().addingTimeInterval(2),
-                    userInfo: nil
-                ) { _ in }
-                if state.needsTap {
-                    WKInterfaceDevice.current().play(state == .needsApproval ? .notification : .success)
-                }
+            // Schedule background refresh as a backup trigger for the widget.
+            WKExtension.shared().scheduleBackgroundRefresh(
+                withPreferredDate: Date().addingTimeInterval(2),
+                userInfo: nil
+            ) { _ in }
+            if state.needsTap {
+                WKInterfaceDevice.current().play(state == .needsApproval ? .notification : .success)
             }
         }
         return .newData
@@ -68,15 +73,17 @@ class ExtensionDelegate: NSObject, WKApplicationDelegate {
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let shared = NotificationDelegate()
 
-    // Foreground: notification about to be presented
+    // Foreground: notification about to be presented.
+    // UN delegate methods run on the main thread — use `assumeIsolated` so the
+    // MainActor-isolated StateStore call is inline (no Task dispatch hop).
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        if let status = notification.request.content.userInfo["status"] as? String,
-           let state = TapState(rawValue: status) {
-            StateStore.shared.updateState(state)
+        if let raw = notification.request.content.userInfo["status"] as? String,
+           let state = TapState(rawValue: raw) {
+            MainActor.assumeIsolated { StateStore.shared.updateState(state) }
         }
         completionHandler([.banner])
     }
@@ -87,9 +94,9 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if let status = response.notification.request.content.userInfo["status"] as? String,
-           let state = TapState(rawValue: status) {
-            StateStore.shared.updateState(state)
+        if let raw = response.notification.request.content.userInfo["status"] as? String,
+           let state = TapState(rawValue: raw) {
+            MainActor.assumeIsolated { StateStore.shared.updateState(state) }
         }
         completionHandler()
     }

@@ -9,25 +9,34 @@ import WidgetKit
 ///      background `didReceiveRemoteNotification`) — call `updateState`.
 ///   2. Delivered notifications still in Notification Center — scanned on
 ///      launch / foreground via `syncFromDeliveredNotifications`.
-///   3. Cached value in shared App Group UserDefaults — used for instant UI
-///      on app launch before the async scan completes.
+///   3. Cached value in shared App Group UserDefaults — read synchronously
+///      in `init` so the first SwiftUI render paints the right state.
 ///
 /// Rationale: watchOS can suspend the app process, so the background push
 /// handler is unreliable. Notifications, however, are delivered by the system
 /// regardless of app state — so scanning them guarantees the app reflects the
 /// most recent push on every launch, even if nothing in our process ran while
 /// it was suspended.
-final class StateStore: ObservableObject, @unchecked Sendable {
+@MainActor
+final class StateStore: ObservableObject {
     static let shared = StateStore()
 
-    @Published var currentState: TapState = .idle
+    @Published private(set) var currentState: TapState
 
     private let appGroup = ClaudeTapConstants.appGroupID
     private let stateKey = ClaudeTapConstants.Defaults.stateKey
     private let stateTimeKey = ClaudeTapConstants.Defaults.stateTimeKey
 
     private init() {
-        loadCached()
+        // Synchronous cache read — first render paints the cached state,
+        // no `.idle` flash, no run-loop hop.
+        if let raw = UserDefaults(suiteName: ClaudeTapConstants.appGroupID)?
+            .string(forKey: ClaudeTapConstants.Defaults.stateKey),
+           let state = TapState(rawValue: raw) {
+            self.currentState = state
+        } else {
+            self.currentState = .idle
+        }
     }
 
     /// Scan delivered notifications and adopt the newest `status` payload if
@@ -54,21 +63,12 @@ final class StateStore: ObservableObject, @unchecked Sendable {
         persist(state, at: Date())
     }
 
-    private func loadCached() {
-        guard let defaults = UserDefaults(suiteName: appGroup),
-              let raw = defaults.string(forKey: stateKey),
-              let state = TapState(rawValue: raw) else { return }
-        DispatchQueue.main.async { self.currentState = state }
-    }
-
     private func persist(_ state: TapState, at date: Date) {
         if let defaults = UserDefaults(suiteName: appGroup) {
             defaults.set(state.rawValue, forKey: stateKey)
             defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
         }
-        DispatchQueue.main.async {
-            self.currentState = state
-            WidgetCenter.shared.reloadAllTimelines()
-        }
+        currentState = state
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }
