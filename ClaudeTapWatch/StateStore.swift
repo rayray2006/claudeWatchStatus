@@ -28,12 +28,10 @@ final class StateStore: ObservableObject {
     /// state is stale and is about to be corrected.
     @Published private(set) var isSyncing: Bool = false
 
-    /// Time the spinner stays up BEFORE the new state is committed.
-    private let preCommitSpinnerDuration: Duration = .milliseconds(300)
-    /// Time the spinner stays up AFTER the new state is committed, to give the
-    /// sprite view time to actually render before the spinner vanishes. Without
-    /// this the spinner fades out into a brief black gap while Canvas redraws.
-    private let postCommitSpinnerDuration: Duration = .milliseconds(350)
+    /// Short yield so SwiftUI has a chance to render the spinner frame before
+    /// we apply the state change. Without it, pre+post-commit happen in the
+    /// same render tick and the user never sees the spinner.
+    private let spinnerRenderYield: Duration = .milliseconds(16)
 
     private let appGroup = ClaudeTapConstants.appGroupID
     private let stateKey = ClaudeTapConstants.Defaults.stateKey
@@ -99,16 +97,17 @@ final class StateStore: ObservableObject {
         guard targetState != currentState else { return }
 
         isSyncing = true
-        try? await Task.sleep(for: preCommitSpinnerDuration)
+        // Give SwiftUI a frame to paint the spinner before we swap state.
+        try? await Task.sleep(for: spinnerRenderYield)
         if let targetDate {
             persist(targetState, at: targetDate)
         } else {
             currentState = targetState
             WidgetCenter.shared.reloadAllTimelines()
         }
-        // Keep the spinner up for a bit longer so the sprite has time to
-        // actually render before the spinner fades out.
-        try? await Task.sleep(for: postCommitSpinnerDuration)
+        // `currentState` is now updated and the sprite renders via a single
+        // blit — clear the spinner immediately; the new character appears
+        // on the very next frame with no perceivable gap.
         isSyncing = false
     }
 
