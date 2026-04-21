@@ -23,6 +23,15 @@ final class StateStore: ObservableObject {
 
     @Published private(set) var currentState: TapState
 
+    /// True while a sync is in flight AND that sync will change `currentState`.
+    /// The UI uses this to show a loading indicator *only* when the displayed
+    /// state is stale and is about to be corrected.
+    @Published private(set) var isSyncing: Bool = false
+
+    /// Minimum time the spinner stays visible once a mismatch is detected, so
+    /// the UI change is perceivable rather than a single-frame flash.
+    private let minSpinnerDuration: Duration = .milliseconds(400)
+
     private let appGroup = ClaudeTapConstants.appGroupID
     private let stateKey = ClaudeTapConstants.Defaults.stateKey
     private let stateTimeKey = ClaudeTapConstants.Defaults.stateTimeKey
@@ -37,42 +46,71 @@ final class StateStore: ObservableObject {
     }
 
     /// Bring the in-memory state in line with whatever the cache currently holds.
-    /// The NSE writes the latest push to the cache while the main app is
-    /// suspended; this method lets us pick that up on resume.
-    func reloadFromCache() {
+    /// Returns the adopted state if it changed, or nil if nothing changed.
+    @discardableResult
+    func reloadFromCache() -> TapState? {
         guard let defaults = UserDefaults(suiteName: appGroup),
               let raw = defaults.string(forKey: stateKey),
-              let state = TapState(rawValue: raw) else { return }
-        if state != currentState {
-            print("CACHE_ADOPT \(state.rawValue)")
-            currentState = state
-        }
+              let state = TapState(rawValue: raw),
+              state != currentState else { return nil }
+        print("CACHE_ADOPT \(state.rawValue)")
+        currentState = state
+        return state
     }
 
-    /// Call on every app resume. First reloads from the shared cache (which
-    /// the NSE updates in a separate process), then falls back to scanning
-    /// delivered notifications for pushes the NSE might have missed.
+    /// Call on every app resume. Determines the best available "target" state
+    /// from the cache and delivered notifications. If that target differs from
+    /// what the UI currently shows, raises `isSyncing` for a short minimum
+    /// duration before committing the new state — giving the loading spinner
+    /// time to render.
     func syncFromDeliveredNotifications() async {
-        reloadFromCache()
-
         let notifications = await UNUserNotificationCenter.current().deliveredNotifications()
         let cachedTime = UserDefaults(suiteName: appGroup)?.double(forKey: stateTimeKey) ?? 0
+        let cachedState: TapState? = UserDefaults(suiteName: appGroup)?
+            .string(forKey: stateKey)
+            .flatMap(TapState.init(rawValue:))
 
-        let candidates = notifications.compactMap { note -> (Date, TapState)? in
+        let latestNotif = notifications.compactMap { note -> (Date, TapState)? in
             guard let raw = note.request.content.userInfo["status"] as? String,
                   let state = TapState(rawValue: raw) else { return nil }
             return (note.date, state)
-        }
-        print("SYNC delivered=\(notifications.count) with-status=\(candidates.count) cachedTime=\(cachedTime)")
+        }.max(by: { $0.0 < $1.0 })
 
-        guard let (date, state) = candidates.max(by: { $0.0 < $1.0 }) else { return }
-        print("SYNC latest=\(state.rawValue)@\(date.timeIntervalSince1970) vs cached=\(cachedTime)")
-        guard date.timeIntervalSince1970 > cachedTime else { return }
-        persist(state, at: date)
+        // Pick the freshest signal: newest delivered notification if it beats
+        // the cached timestamp, otherwise whatever is cached.
+        let targetState: TapState
+        let targetDate: Date?
+        if let (date, state) = latestNotif, date.timeIntervalSince1970 > cachedTime {
+            targetState = state
+            targetDate = date
+        } else if let cached = cachedState {
+            targetState = cached
+            targetDate = nil
+        } else {
+            targetState = currentState
+            targetDate = nil
+        }
+
+        print("SYNC target=\(targetState.rawValue) current=\(currentState.rawValue)")
+
+        guard targetState != currentState else { return }
+
+        isSyncing = true
+        try? await Task.sleep(for: minSpinnerDuration)
+        if let targetDate {
+            persist(targetState, at: targetDate)
+        } else {
+            currentState = targetState
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        isSyncing = false
     }
 
     /// Apply a state received in-flight (foreground delegate or background handler).
     func updateState(_ state: TapState) {
+        // If a push arrived while the app is already open, we never needed a
+        // spinner in the first place; clear it if one was up.
+        if isSyncing { isSyncing = false }
         persist(state, at: Date())
     }
 

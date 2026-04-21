@@ -8,7 +8,18 @@ struct StatusView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            PixelClaudeView(state: store.currentState, size: 140)
+            ZStack(alignment: .topTrailing) {
+                PixelClaudeView(state: store.currentState, size: 140)
+
+                if store.isSyncing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                        .padding(6)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: store.isSyncing)
 
             Text(store.currentState.label)
                 .font(.system(.headline, weight: .bold))
