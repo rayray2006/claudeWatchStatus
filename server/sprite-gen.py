@@ -69,12 +69,32 @@ states = {
 }
 
 
+def content_bbox(img: Image.Image) -> tuple[int, int, int, int] | None:
+    """Tight bounding box of non-transparent content, or None if all transparent."""
+    alpha = img.split()[-1]
+    bbox = alpha.getbbox()  # returns (l, t, r, b) of non-zero alpha region
+    return bbox
+
+
 def load_and_prepare(path: str, grid: int) -> bytes:
     """Open the source image, make the edge-connected black background
-    transparent, pad to square if needed, downsample to grid×grid, and return
-    raw RGBA bytes (grid*grid*4)."""
+    transparent, crop tight to the character (with a small margin), pad to
+    square, downsample to grid×grid, return raw RGBA bytes (grid*grid*4)."""
     img = Image.open(path).convert("RGBA")
     img = flood_fill_bg(img)
+
+    # Crop tight to content so the character fills the frame. Pad with a small
+    # margin (% of the long side) so the character doesn't run to the edges.
+    if (bbox := content_bbox(img)) is not None:
+        l, t, r, b = bbox
+        content_w = r - l
+        content_h = b - t
+        margin = int(max(content_w, content_h) * 0.06)  # ~6% margin per side
+        l = max(0, l - margin)
+        t = max(0, t - margin)
+        r = min(img.width, r + margin)
+        b = min(img.height, b + margin)
+        img = img.crop((l, t, r, b))
 
     w, h = img.size
     side = max(w, h)
@@ -86,7 +106,7 @@ def load_and_prepare(path: str, grid: int) -> bytes:
     if img.size != (grid, grid):
         img = img.resize((grid, grid), Image.NEAREST)
 
-    return img.tobytes()  # raw RGBA, row-major, top-left origin
+    return img.tobytes()
 
 
 lines: list[str] = [
