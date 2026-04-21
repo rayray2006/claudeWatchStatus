@@ -26,21 +26,22 @@ struct PairingView: View {
 
     private func awaitingView(code: String) -> some View {
         VStack(spacing: 8) {
-            Text("Open on a browser:")
+            Text("Open on any device:")
                 .font(.system(.caption2, weight: .semibold))
                 .foregroundStyle(.secondary)
 
-            Text("nudge.app/p")
-                .font(.system(.footnote, design: .monospaced).bold())
+            Text("nudge-backend-psi\n.vercel.app/p")
+                .font(.system(.caption2, design: .monospaced).bold())
                 .foregroundColor(.orange)
+                .multilineTextAlignment(.center)
 
             Text("Enter code")
                 .font(.system(.caption2, weight: .semibold))
                 .foregroundStyle(.secondary)
-                .padding(.top, 6)
+                .padding(.top, 4)
 
             Text(formatted(code))
-                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                .font(.system(size: 26, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
                 .tracking(3)
         }
@@ -62,7 +63,6 @@ struct PairingView: View {
     }
 
     private func formatted(_ code: String) -> String {
-        // Break into groups of 3 for legibility.
         guard code.count == 6 else { return code }
         let idx = code.index(code.startIndex, offsetBy: 3)
         return String(code[..<idx]) + " " + String(code[idx...])

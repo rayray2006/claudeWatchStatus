@@ -1,16 +1,12 @@
 import Foundation
 
-/// Shared configuration for the Nudge backend, used by both iOS and Watch.
+/// Shared configuration for the Nudge backend.
 enum BackendConfig {
     static let baseURL = URL(string: "https://nudge-backend-psi.vercel.app")!
 
-    /// Keychain key (service: com.fm.claudetap) under which the backend
-    /// session token is stored on both iOS and Watch.
-    static let sessionKeychainKey = "nudge.session_token"
-
-    /// APNs environment the backend should route pushes through for this
-    /// build. Free/dev provisioning delivers to sandbox; release builds
-    /// (with prod provisioning) should use production.
+    /// APNs environment for pushes this device will receive. Dev builds
+    /// register with Apple's sandbox; release builds (not yet provisioned)
+    /// will need "production".
     static var apnsEnvironment: String {
         #if DEBUG
         return "sandbox"
@@ -18,4 +14,6 @@ enum BackendConfig {
         return "production"
         #endif
     }
+
+    static let watchBundleId = "com.fm.claudetap.watchapp"
 }

@@ -4,57 +4,57 @@ import Observation
 /// Watch-side pairing state machine.
 ///
 /// Lifecycle:
-///   1. First launch with an APNs token → POST /v1/pair, get a 6-char code,
-///      show it to the user.
-///   2. User enters the code on nudge.app/p in a browser → backend marks
-///      it claimed.
-///   3. Watch polls GET /v1/pair/:code every few seconds and flips to
-///      `paired` once the backend confirms. We persist that flag in the
-///      Keychain so the pair screen isn't shown again.
+///   1. First launch — APNs token arrives → POST /v1/pair → display a
+///      6-character code.
+///   2. User opens nudge-backend-psi.vercel.app/p and enters the code → the
+///      backend claims it and creates an API key bound to this device.
+///   3. We poll GET /v1/pair/:code every few seconds; when the backend
+///      flips `claimed: true` we persist a one-time flag in UserDefaults
+///      so we never show this screen again.
 @MainActor
 @Observable
 final class Pairing {
     static let shared = Pairing()
 
     enum Stage {
-        case idle                // no APNs token yet
-        case requesting          // asking backend for a code
+        case idle
+        case requesting
         case awaitingUser(code: String, expiresAt: Date)
         case paired
         case failed(String)
     }
 
-    private(set) var stage: Stage = .idle
+    private(set) var stage: Stage
 
     private var apnsToken: String?
     private var pollTask: Task<Void, Never>?
 
-    private static let pairedFlagKey = "nudge.paired"
+    private static let pairedDefaultsKey = "nudge.paired"
 
     private init() {
-        if Keychain.read(Self.pairedFlagKey) == "1" {
-            stage = .paired
-        }
+        let already = UserDefaults.standard.bool(forKey: Self.pairedDefaultsKey)
+        self.stage = already ? .paired : .idle
     }
 
-    /// Called from the APNs registration callback. Kicks off pairing if needed.
+    /// Called from the APNs registration callback.
     func setAPNsToken(_ token: String) {
         apnsToken = token
         if case .paired = stage { return }
         Task { await beginPairing() }
     }
 
+    /// Reset pairing (mostly for dev / debug).
     func reset() {
         pollTask?.cancel()
         pollTask = nil
-        Keychain.delete(Self.pairedFlagKey)
+        UserDefaults.standard.set(false, forKey: Self.pairedDefaultsKey)
         stage = .idle
-        if let apnsToken {
+        if apnsToken != nil {
             Task { await beginPairing() }
         }
     }
 
-    /// Retry from a failed state.
+    /// Retry from a failed state without waiting for a new APNs token.
     func retry() {
         if case .paired = stage { return }
         Task { await beginPairing() }
@@ -69,7 +69,7 @@ final class Pairing {
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         let body: [String: String] = [
             "apnsToken": apnsToken,
-            "bundleId": "com.fm.nudge",
+            "bundleId": BackendConfig.watchBundleId,
             "environment": BackendConfig.apnsEnvironment,
         ]
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -116,13 +116,13 @@ final class Pairing {
             guard status == 200 else { return }
             let decoded = try JSONDecoder().decode(PairStatus.self, from: data)
             if decoded.claimed {
-                Keychain.save("1", forKey: Self.pairedFlagKey)
+                UserDefaults.standard.set(true, forKey: Self.pairedDefaultsKey)
                 stage = .paired
                 pollTask?.cancel()
                 pollTask = nil
             }
         } catch {
-            // Transient; keep polling.
+            // transient — keep polling
         }
     }
 }
