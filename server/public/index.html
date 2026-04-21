@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ClaudeTap</title>
+    <style>
+        :root {
+            --bg: #0c0c10;
+            --panel: #17171d;
+            --text: #e8e8ef;
+            --muted: #8a8a99;
+            --accent: #d98a5a;
+            --idle: #7a7a85;
+            --working: #e08e3a;
+            --done: #4caf7e;
+            --approval: #4a8ee0;
+            --err: #e05050;
+            --ok: #4caf7e;
+        }
+        html, body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 15px -apple-system, system-ui, "SF Pro Text", sans-serif;
+            min-height: 100vh;
+        }
+        .wrap {
+            max-width: 460px;
+            margin: 64px auto;
+            padding: 0 24px;
+        }
+        h1 {
+            font-size: 28px;
+            margin: 0 0 4px;
+            letter-spacing: -0.02em;
+        }
+        .subtitle {
+            color: var(--muted);
+            margin: 0 0 32px;
+        }
+        .panel {
+            background: var(--panel);
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            background: #1f1f27;
+            color: var(--text);
+            border: 1px solid #2a2a33;
+            border-radius: 8px;
+            font: 13px ui-monospace, "SF Mono", monospace;
+            outline: none;
+        }
+        input:focus { border-color: var(--accent); }
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        button {
+            appearance: none;
+            border: 0;
+            padding: 14px 0;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.08s ease, opacity 0.15s;
+        }
+        button:active { transform: scale(0.97); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.idle     { background: var(--idle); }
+        button.working  { background: var(--working); }
+        button.done     { background: var(--done); }
+        button.approval { background: var(--approval); }
+        .status {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font: 13px ui-monospace, monospace;
+            min-height: 20px;
+            background: #1f1f27;
+            color: var(--muted);
+        }
+        .status.ok  { color: var(--ok); }
+        .status.err { color: var(--err); }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>ClaudeTap</h1>
+        <p class="subtitle">Fire a test push at your Apple Watch.</p>
+
+        <div class="panel">
+            <label for="token">APNs device token</label>
+            <input id="token" spellcheck="false" autocorrect="off" autocapitalize="off"
+                   placeholder="64 hex characters">
+        </div>
+
+        <div class="panel">
+            <label>Send state</label>
+            <div class="buttons">
+                <button class="idle"     data-status="idle">Idle</button>
+                <button class="working"  data-status="working">Working</button>
+                <button class="approval" data-status="approval">Approval</button>
+                <button class="done"     data-status="done">Done</button>
+            </div>
+            <div id="status" class="status">Ready.</div>
+        </div>
+    </div>
+
+    <script>
+        const tokenInput = document.getElementById('token')
+        const statusEl = document.getElementById('status')
+        const buttons = document.querySelectorAll('button[data-status]')
+
+        const STORED_KEY = 'claudetap_device_token'
+        tokenInput.value = localStorage.getItem(STORED_KEY) || ''
+
+        tokenInput.addEventListener('input', () => {
+            localStorage.setItem(STORED_KEY, tokenInput.value.trim())
+        })
+
+        function setStatus(text, kind = '') {
+            statusEl.className = 'status ' + kind
+            statusEl.textContent = text
+        }
+
+        async function send(status) {
+            const token = tokenInput.value.trim().toLowerCase()
+            if (!/^[0-9a-f]{64}$/.test(token)) {
+                setStatus('Invalid token — expected 64 hex characters.', 'err')
+                return
+            }
+            buttons.forEach(b => b.disabled = true)
+            setStatus(`Sending ${status}…`)
+            try {
+                const res = await fetch('/push', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ token, status })
+                })
+                const data = await res.json()
+                if (data.ok) {
+                    setStatus(`${status} ✓`, 'ok')
+                } else {
+                    setStatus(`${status} ✗ ${data.error || data.httpStatus + ': ' + data.body}`, 'err')
+                }
+            } catch (e) {
+                setStatus(`Network error: ${e.message}`, 'err')
+            } finally {
+                buttons.forEach(b => b.disabled = false)
+            }
+        }
+
+        buttons.forEach(b => {
+            b.addEventListener('click', () => send(b.dataset.status))
+        })
+    </script>
+</body>
+</html>
