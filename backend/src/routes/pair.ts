@@ -165,7 +165,7 @@ pairRoutes.post('/:code/claim', async (c) => {
         .where(eq(pairCodes.code, code))
 
     // Short alias so users copy-paste a minimal URL into their settings.json.
-    const pushUrl = 'https://ntap.vercel.app/api/v1/push'
+    const pushUrl = 'https://getcued.vercel.app/api/v1/push'
 
     return c.json({
         key: key.raw,

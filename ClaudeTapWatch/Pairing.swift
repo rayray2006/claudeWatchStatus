@@ -33,7 +33,7 @@ final class Pairing {
     private var apnsToken: String?
     private var pollTask: Task<Void, Never>?
 
-    private static let pairedDefaultsKey = "nudge.paired"
+    private static let pairedDefaultsKey = "cued.paired"
 
     private init() {
         let already = UserDefaults.standard.bool(forKey: Self.pairedDefaultsKey)

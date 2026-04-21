@@ -1,9 +1,9 @@
 import Foundation
 
-/// Shared configuration for the Nudge backend.
+/// Shared configuration for the Cued backend.
 enum BackendConfig {
     /// Short, typable alias for pairing URLs shown on the watch.
-    static let shortHost = "ntap.vercel.app"
+    static let shortHost = "getcued.vercel.app"
     static let baseURL = URL(string: "https://\(shortHost)")!
 
     /// APNs environment for pushes this device will receive. Dev builds

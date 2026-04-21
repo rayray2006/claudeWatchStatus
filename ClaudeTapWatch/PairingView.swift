@@ -47,7 +47,7 @@ struct PairingView: View {
                 .font(.system(.caption2, weight: .semibold))
                 .foregroundStyle(.secondary)
 
-            Text("ntap.vercel.app")
+            Text("getcued.vercel.app")
                 .font(.system(.subheadline, design: .monospaced).weight(.semibold))
                 .foregroundColor(.orange)
                 .padding(.top, 2)
