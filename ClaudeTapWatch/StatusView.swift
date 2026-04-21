@@ -8,12 +8,17 @@ struct StatusView: View {
     var body: some View {
         VStack(spacing: 8) {
             ZStack {
+                // Always mounted. When currentState changes, Canvas starts
+                // redrawing in the background — while the spinner overlay (if
+                // any) is still up, hiding the work-in-progress render.
+                PixelClaudeView(state: store.currentState, size: 140)
+
                 if store.isSyncing {
+                    Color.black
+                        .transition(.opacity)
                     ProgressView()
                         .controlSize(.large)
                         .tint(.white)
-                } else {
-                    PixelClaudeView(state: store.currentState, size: 140)
                 }
             }
             .frame(width: 140, height: 140)

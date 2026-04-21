@@ -27,54 +27,47 @@ function makeJWT() {
     return `${header}.${payload}.${signature}`
 }
 
-// States where we want the user's attention (haptic + visible notification).
-// Everything else is a silent cache update.
-const ATTENTION_STATES = new Set(['done', 'approval'])
-
 /**
  * Send a state-change push to the Watch.
  *
- * Attention states (done, approval) send a user-visible alert push with NSE
- * (haptic, banner, image attachment). Silent states (idle, working) send a
- * background-type push that wakes the app just long enough to update its
- * cache — no haptic, no notification.
+ * All pushes are alert-type with `mutable-content: 1` so the Notification
+ * Service Extension runs for every state. The NSE writes the new state to
+ * the shared App Group cache even when the watch app is terminated — that's
+ * the only reliable path to keep the app + complication up to date.
  *
- * All pushes share the same apns-collapse-id so a new state always replaces
- * the previous one in Notification Center (at most one visible entry).
+ * The NSE on the watch decides how user-visible each notification is:
+ *   - done/approval → full notification with haptic + image attachment
+ *   - idle/working  → passive, empty, no haptic (delivered to cache only)
+ *
+ * All pushes share the same apns-collapse-id so a new state replaces the
+ * previous entry in Notification Center rather than stacking.
  *
  * @param {{ token: string, status: 'idle'|'working'|'done'|'approval' }} opts
  * @returns {Promise<{ ok: boolean, httpStatus: number, body: string }>}
  */
 export function sendPush({ token, status }) {
-    const loud = ATTENTION_STATES.has(status)
-
-    const payload = loud
-        ? {
-            aps: {
-                alert: {
-                    title: 'Claude',
-                    body: status === 'approval' ? 'Needs approval' : 'Done'
-                },
-                sound: 'default',
-                'content-available': 1,
-                'mutable-content': 1
+    const payload = {
+        aps: {
+            alert: {
+                title: 'Claude',
+                body: status === 'approval' ? 'Needs approval' :
+                      status === 'done'     ? 'Done' : ''
             },
-            status,
-            ts: Date.now()
-        }
-        : {
-            aps: { 'content-available': 1 },
-            status,
-            ts: Date.now()
-        }
+            sound: 'default',
+            'content-available': 1,
+            'mutable-content': 1
+        },
+        status,
+        ts: Date.now()
+    }
 
     const headers = {
         ':method': 'POST',
         ':path': `/3/device/${token}`,
         'authorization': `bearer ${makeJWT()}`,
         'apns-topic': TOPIC,
-        'apns-push-type': loud ? 'alert' : 'background',
-        'apns-priority': loud ? '10' : '5',
+        'apns-push-type': 'alert',
+        'apns-priority': '10',
         'apns-collapse-id': 'claudetap-state',
         'apns-id': randomUUID(),
         'content-type': 'application/json'

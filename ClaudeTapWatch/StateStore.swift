@@ -28,10 +28,12 @@ final class StateStore: ObservableObject {
     /// state is stale and is about to be corrected.
     @Published private(set) var isSyncing: Bool = false
 
-    /// Short yield so SwiftUI has a chance to render the spinner frame before
-    /// we apply the state change. Without it, pre+post-commit happen in the
-    /// same render tick and the user never sees the spinner.
-    private let spinnerRenderYield: Duration = .milliseconds(16)
+    /// Yield so SwiftUI renders the spinner frame before we swap state.
+    private let preCommitDelay: Duration = .milliseconds(200)
+    /// Time the spinner stays up after state commits. The character is being
+    /// re-drawn by Canvas underneath the spinner during this window — once the
+    /// spinner fades, the new character is visible without a black gap.
+    private let postCommitDelay: Duration = .milliseconds(700)
 
     private let appGroup = ClaudeTapConstants.appGroupID
     private let stateKey = ClaudeTapConstants.Defaults.stateKey
@@ -97,17 +99,18 @@ final class StateStore: ObservableObject {
         guard targetState != currentState else { return }
 
         isSyncing = true
-        // Give SwiftUI a frame to paint the spinner before we swap state.
-        try? await Task.sleep(for: spinnerRenderYield)
+        // Let SwiftUI paint the spinner, then commit the state change.
+        try? await Task.sleep(for: preCommitDelay)
         if let targetDate {
             persist(targetState, at: targetDate)
         } else {
             currentState = targetState
             WidgetCenter.shared.reloadAllTimelines()
         }
-        // `currentState` is now updated and the sprite renders via a single
-        // blit — clear the spinner immediately; the new character appears
-        // on the very next frame with no perceivable gap.
+        // Canvas is re-rendering the new character underneath the spinner
+        // during this window; by the time the spinner fades, the new sprite
+        // is on screen.
+        try? await Task.sleep(for: postCommitDelay)
         isSyncing = false
     }
 
