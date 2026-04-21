@@ -2,7 +2,7 @@ name: ClaudeTap
 options:
   bundleIdPrefix: com.fm
   deploymentTarget:
-    iOS: "18.0"
+    iOS: "17.0"
     watchOS: "11.0"
   xcodeVersion: "16.0"
   groupSortPosition: top
@@ -22,14 +22,11 @@ targets:
     sources:
       - path: ClaudeTap
       - path: Shared
-    dependencies:
-      - target: ClaudeTapWidgetiOS
     info:
       path: ClaudeTap/Info.plist
       properties:
         CFBundleDisplayName: ClaudeTap
         UILaunchScreen: {}
-        NSSupportsLiveActivities: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap
@@ -38,24 +35,6 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
-
-  ClaudeTapWidgetiOS:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: ClaudeTapWidgetiOS
-      - path: Shared/ClaudeTapActivity.swift
-      - path: Shared/TapState.swift
-      - path: Shared/ClaudeSprites.swift
-    info:
-      path: ClaudeTapWidgetiOS/Info.plist
-      properties:
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.widgetkit-extension
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.widget
-        CODE_SIGN_ENTITLEMENTS: ClaudeTapWidgetiOS/ClaudeTapWidgetiOS.entitlements
 
   ClaudeTapWatch:
     type: application

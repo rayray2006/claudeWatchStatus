@@ -2,13 +2,10 @@ import Foundation
 
 enum ClaudeTapConstants {
     static let appGroupID = "group.com.fm.claudetap"
-    static let ntfyBaseURL = "https://ntfy.sh"
-    static let ntfyWebSocketURL = "wss://ntfy.sh"
 
     enum Defaults {
-        static let topicKey = "ntfy_topic"
         static let stateKey = "claude_state"
-        static let lastTapKey = "last_tap_date"
+        static let stateTimeKey = "claude_state_time"
     }
 
     enum ComplicationKind {
