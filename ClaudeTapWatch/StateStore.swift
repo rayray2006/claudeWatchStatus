@@ -28,8 +28,7 @@ final class StateStore: ObservableObject {
     private let stateTimeKey = ClaudeTapConstants.Defaults.stateTimeKey
 
     private init() {
-        // Synchronous cache read — first render paints the cached state,
-        // no `.idle` flash, no run-loop hop.
+        // Synchronous cache read — first render paints the cached state.
         let raw = UserDefaults(suiteName: ClaudeTapConstants.appGroupID)?
             .string(forKey: ClaudeTapConstants.Defaults.stateKey)
         let state = raw.flatMap(TapState.init(rawValue:)) ?? .idle
@@ -37,9 +36,25 @@ final class StateStore: ObservableObject {
         print("STORE_INIT cached=\(raw ?? "<nil>") state=\(state.rawValue)")
     }
 
-    /// Scan delivered notifications and adopt the newest `status` payload if
-    /// it's fresher than the cached state. Safe to call repeatedly.
+    /// Bring the in-memory state in line with whatever the cache currently holds.
+    /// The NSE writes the latest push to the cache while the main app is
+    /// suspended; this method lets us pick that up on resume.
+    func reloadFromCache() {
+        guard let defaults = UserDefaults(suiteName: appGroup),
+              let raw = defaults.string(forKey: stateKey),
+              let state = TapState(rawValue: raw) else { return }
+        if state != currentState {
+            print("CACHE_ADOPT \(state.rawValue)")
+            currentState = state
+        }
+    }
+
+    /// Call on every app resume. First reloads from the shared cache (which
+    /// the NSE updates in a separate process), then falls back to scanning
+    /// delivered notifications for pushes the NSE might have missed.
     func syncFromDeliveredNotifications() async {
+        reloadFromCache()
+
         let notifications = await UNUserNotificationCenter.current().deliveredNotifications()
         let cachedTime = UserDefaults(suiteName: appGroup)?.double(forKey: stateTimeKey) ?? 0
 
