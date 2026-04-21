@@ -24,8 +24,6 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
-	<key>WKCompanionAppBundleIdentifier</key>
-	<string>com.fm.claudetap</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<true/>
 </dict>

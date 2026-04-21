@@ -5,44 +5,27 @@ import {
     text,
     timestamp,
     boolean,
-    uniqueIndex,
     index,
 } from 'drizzle-orm/pg-core'
 
-export const users = pgTable('users', {
+export const devices = pgTable('devices', {
     id: uuid('id').primaryKey().defaultRandom(),
-    appleSub: text('apple_sub').notNull().unique(),
+    apnsToken: text('apns_token').notNull().unique(),
+    bundleId: text('bundle_id').notNull(),
+    environment: text('environment').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    lastPushedAt: timestamp('last_pushed_at', { withTimezone: true }),
+    isActive: boolean('is_active').notNull().default(true),
 })
-
-export const devices = pgTable(
-    'devices',
-    {
-        id: uuid('id').primaryKey().defaultRandom(),
-        userId: uuid('user_id')
-            .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
-        apnsToken: text('apns_token').notNull(),
-        bundleId: text('bundle_id').notNull(),
-        environment: text('environment').notNull(), // 'sandbox' | 'production'
-        updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-        lastPushedAt: timestamp('last_pushed_at', { withTimezone: true }),
-        isActive: boolean('is_active').notNull().default(true),
-    },
-    (t) => ({
-        userTokenUnique: uniqueIndex('devices_user_token_idx').on(t.userId, t.apnsToken),
-        activeByUser: index('devices_active_user_idx').on(t.userId, t.isActive),
-    }),
-)
 
 export const apiKeys = pgTable(
     'api_keys',
     {
         id: uuid('id').primaryKey().defaultRandom(),
-        userId: uuid('user_id')
+        deviceId: uuid('device_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => devices.id, { onDelete: 'cascade' }),
         keyHash: text('key_hash').notNull(),
         keyPrefix: text('key_prefix').notNull(),
         label: text('label'),
@@ -57,6 +40,24 @@ export const apiKeys = pgTable(
     }),
 )
 
-export type User = typeof users.$inferSelect
+export const pairCodes = pgTable(
+    'pair_codes',
+    {
+        code: text('code').primaryKey(),
+        apnsToken: text('apns_token').notNull(),
+        bundleId: text('bundle_id').notNull(),
+        environment: text('environment').notNull(),
+        createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+        expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+        claimed: boolean('claimed').notNull().default(false),
+        deviceId: uuid('device_id').references(() => devices.id, { onDelete: 'set null' }),
+        apiKeyId: uuid('api_key_id').references(() => apiKeys.id, { onDelete: 'set null' }),
+    },
+    (t) => ({
+        byExpires: index('pair_codes_expires_idx').on(t.expiresAt),
+    }),
+)
+
 export type Device = typeof devices.$inferSelect
 export type ApiKey = typeof apiKeys.$inferSelect
+export type PairCode = typeof pairCodes.$inferSelect

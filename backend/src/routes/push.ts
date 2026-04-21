@@ -9,9 +9,13 @@ export const pushRoutes = new Hono()
 
 const VALID_STATES: ReadonlySet<Status> = new Set(['idle', 'working', 'done', 'approval'])
 
-/** POST /v1/push — Mac hook entry point. Forwards state to all user's devices. */
+/**
+ * POST /v1/push — the Mac Claude Code hook hits this with an API key and a
+ * state string. Every API key is scoped to a single device (1:1 pairing);
+ * we look up the device and forward the push via APNs.
+ */
 pushRoutes.post('/', requireApiKey, async (c) => {
-    const userId = c.get('apiKeyUserId')
+    const deviceId = c.get('apiKeyDeviceId')
 
     let body: { status?: string }
     try {
@@ -25,7 +29,7 @@ pushRoutes.post('/', requireApiKey, async (c) => {
         return c.json({ error: 'invalid_status' }, 400)
     }
 
-    const targets = await db
+    const rows = await db
         .select({
             id: devices.id,
             apnsToken: devices.apnsToken,
@@ -33,66 +37,46 @@ pushRoutes.post('/', requireApiKey, async (c) => {
             environment: devices.environment,
         })
         .from(devices)
-        .where(and(eq(devices.userId, userId), eq(devices.isActive, true)))
+        .where(and(eq(devices.id, deviceId), eq(devices.isActive, true)))
+        .limit(1)
 
-    if (targets.length === 0) {
-        return c.json({ delivered: 0, invalidated: 0, warning: 'no_active_devices' })
+    const device = rows[0]
+    if (!device) {
+        return c.json({ delivered: 0, invalidated: 0, warning: 'no_active_device' })
     }
 
-    let delivered = 0
-    let invalidated = 0
-    const errors: string[] = []
-
-    await Promise.all(
-        targets.map(async (d) => {
-            const env = d.environment === 'production' ? 'production' : 'sandbox'
-            const result = await sendPush(
-                { token: d.apnsToken, bundleId: d.bundleId, environment: env },
-                status,
-            )
-
-            if (result.ok) {
-                delivered++
-                db.update(devices)
-                    .set({ lastPushedAt: new Date() })
-                    .where(eq(devices.id, d.id))
-                    .execute()
-                    .catch(() => {/* ignore */})
-                return
-            }
-
-            errors.push(`${result.httpStatus}:${result.reason ?? 'unknown'}`)
-            if (isPermanentFailure(result)) {
-                invalidated++
-                db.update(devices)
-                    .set({ isActive: false })
-                    .where(eq(devices.id, d.id))
-                    .execute()
-                    .catch(() => {/* ignore */})
-                return
-            }
-
-            // Transient: retry once after 500ms.
-            await new Promise((r) => setTimeout(r, 500))
-            const retry = await sendPush(
-                { token: d.apnsToken, bundleId: d.bundleId, environment: env },
-                status,
-            )
-            if (retry.ok) {
-                delivered++
-            } else {
-                errors.push(`retry:${retry.httpStatus}:${retry.reason ?? 'unknown'}`)
-                if (isPermanentFailure(retry)) {
-                    invalidated++
-                    db.update(devices)
-                        .set({ isActive: false })
-                        .where(eq(devices.id, d.id))
-                        .execute()
-                        .catch(() => {/* ignore */})
-                }
-            }
-        }),
+    const env = device.environment === 'production' ? 'production' : 'sandbox'
+    let result = await sendPush(
+        { token: device.apnsToken, bundleId: device.bundleId, environment: env },
+        status,
     )
 
-    return c.json({ delivered, invalidated, errors })
+    if (!result.ok && !isPermanentFailure(result)) {
+        // One retry for transient errors.
+        await new Promise((r) => setTimeout(r, 500))
+        result = await sendPush(
+            { token: device.apnsToken, bundleId: device.bundleId, environment: env },
+            status,
+        )
+    }
+
+    if (result.ok) {
+        db.update(devices)
+            .set({ lastPushedAt: new Date() })
+            .where(eq(devices.id, device.id))
+            .execute()
+            .catch(() => {/* ignore */})
+        return c.json({ delivered: 1, invalidated: 0 })
+    }
+
+    if (isPermanentFailure(result)) {
+        db.update(devices)
+            .set({ isActive: false })
+            .where(eq(devices.id, device.id))
+            .execute()
+            .catch(() => {/* ignore */})
+        return c.json({ delivered: 0, invalidated: 1, error: result.reason })
+    }
+
+    return c.json({ delivered: 0, invalidated: 0, error: result.reason }, 502)
 })

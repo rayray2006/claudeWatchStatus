@@ -6,14 +6,14 @@ import { hashApiKey, parseBearer } from '../auth/apiKey.js'
 
 declare module 'hono' {
     interface ContextVariableMap {
-        apiKeyUserId: string
+        apiKeyDeviceId: string
         apiKeyId: string
     }
 }
 
 /**
  * Authenticates a request using a bearer API key. Looks up by sha256 hash,
- * updates last_used_at, and rejects revoked keys.
+ * rejects revoked keys, updates last_used_at best-effort.
  */
 export const requireApiKey: MiddlewareHandler = async (c, next) => {
     const raw = parseBearer(c.req.header('authorization'))
@@ -23,7 +23,7 @@ export const requireApiKey: MiddlewareHandler = async (c, next) => {
 
     const hash = hashApiKey(raw)
     const rows = await db
-        .select({ id: apiKeys.id, userId: apiKeys.userId })
+        .select({ id: apiKeys.id, deviceId: apiKeys.deviceId })
         .from(apiKeys)
         .where(and(eq(apiKeys.keyHash, hash), isNull(apiKeys.revokedAt)))
         .limit(1)
@@ -33,10 +33,9 @@ export const requireApiKey: MiddlewareHandler = async (c, next) => {
         return c.json({ error: 'invalid_api_key' }, 401)
     }
 
-    c.set('apiKeyUserId', row.userId)
+    c.set('apiKeyDeviceId', row.deviceId)
     c.set('apiKeyId', row.id)
 
-    // Best-effort last-used stamp; don't block the request on it.
     db.update(apiKeys)
         .set({ lastUsedAt: new Date() })
         .where(eq(apiKeys.id, row.id))
