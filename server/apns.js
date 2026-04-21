@@ -46,13 +46,18 @@ function makeJWT() {
  * @returns {Promise<{ ok: boolean, httpStatus: number, body: string }>}
  */
 export function sendPush({ token, status }) {
+    // watchOS skips the Notification Service Extension entirely when the
+    // alert body is empty — so every push must carry a non-empty body even
+    // for silent states. The NSE clears it again before the notification is
+    // delivered to the user for idle/working.
+    const body = status === 'approval' ? 'Needs approval' :
+                 status === 'done'     ? 'Done' :
+                 status === 'working'  ? 'Working' :
+                                         'Idle'
+
     const payload = {
         aps: {
-            alert: {
-                title: 'Claude',
-                body: status === 'approval' ? 'Needs approval' :
-                      status === 'done'     ? 'Done' : ''
-            },
+            alert: { title: 'Claude', body },
             sound: 'default',
             'content-available': 1,
             'mutable-content': 1
