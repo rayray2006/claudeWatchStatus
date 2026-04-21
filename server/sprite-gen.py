@@ -68,6 +68,16 @@ states = {
     "approval": "ClaudeApproval",
 }
 
+# Per-state content-bbox margin. None = skip the crop entirely (preserve the
+# source framing exactly). A small number = tight crop → character fills more
+# of the frame. A larger number = looser crop → character appears smaller.
+crop_margins: dict[str, float | None] = {
+    "idle": 0.06,
+    "working": 0.06,
+    "done": None,        # user prefers done at its original framing
+    "approval": 0.06,
+}
+
 
 def content_bbox(img: Image.Image) -> tuple[int, int, int, int] | None:
     """Tight bounding box of non-transparent content, or None if all transparent."""
@@ -76,20 +86,20 @@ def content_bbox(img: Image.Image) -> tuple[int, int, int, int] | None:
     return bbox
 
 
-def load_and_prepare(path: str, grid: int) -> bytes:
+def load_and_prepare(path: str, grid: int, crop_margin: float | None) -> bytes:
     """Open the source image, make the edge-connected black background
-    transparent, crop tight to the character (with a small margin), pad to
-    square, downsample to grid×grid, return raw RGBA bytes (grid*grid*4)."""
+    transparent, optionally crop tight to the character (with `crop_margin` as
+    a fraction of the content size), pad to square, downsample to grid×grid,
+    return raw RGBA bytes (grid*grid*4)."""
     img = Image.open(path).convert("RGBA")
     img = flood_fill_bg(img)
 
-    # Crop tight to content so the character fills the frame. Pad with a small
-    # margin (% of the long side) so the character doesn't run to the edges.
-    if (bbox := content_bbox(img)) is not None:
+    # Crop tight to content so the character fills the frame. None = skip crop.
+    if crop_margin is not None and (bbox := content_bbox(img)) is not None:
         l, t, r, b = bbox
         content_w = r - l
         content_h = b - t
-        margin = int(max(content_w, content_h) * 0.06)  # ~6% margin per side
+        margin = int(max(content_w, content_h) * crop_margin)
         l = max(0, l - margin)
         t = max(0, t - margin)
         r = min(img.width, r + margin)
@@ -182,7 +192,7 @@ for key, asset_name in states.items():
         print(f"  ⚠ No image for {asset_name}, skipping")
         continue
 
-    raw = load_and_prepare(source, GRID)
+    raw = load_and_prepare(source, GRID, crop_margins.get(key))
     b64 = base64.b64encode(raw).decode("ascii")
 
     lines.append(f"    private static let data_{key}: String = \"{b64}\"")

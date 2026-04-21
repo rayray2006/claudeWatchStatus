@@ -28,9 +28,12 @@ final class StateStore: ObservableObject {
     /// state is stale and is about to be corrected.
     @Published private(set) var isSyncing: Bool = false
 
-    /// Minimum time the spinner stays visible once a mismatch is detected, so
-    /// the UI change is perceivable rather than a single-frame flash.
-    private let minSpinnerDuration: Duration = .milliseconds(400)
+    /// Time the spinner stays up BEFORE the new state is committed.
+    private let preCommitSpinnerDuration: Duration = .milliseconds(300)
+    /// Time the spinner stays up AFTER the new state is committed, to give the
+    /// sprite view time to actually render before the spinner vanishes. Without
+    /// this the spinner fades out into a brief black gap while Canvas redraws.
+    private let postCommitSpinnerDuration: Duration = .milliseconds(350)
 
     private let appGroup = ClaudeTapConstants.appGroupID
     private let stateKey = ClaudeTapConstants.Defaults.stateKey
@@ -96,13 +99,16 @@ final class StateStore: ObservableObject {
         guard targetState != currentState else { return }
 
         isSyncing = true
-        try? await Task.sleep(for: minSpinnerDuration)
+        try? await Task.sleep(for: preCommitSpinnerDuration)
         if let targetDate {
             persist(targetState, at: targetDate)
         } else {
             currentState = targetState
             WidgetCenter.shared.reloadAllTimelines()
         }
+        // Keep the spinner up for a bit longer so the sprite has time to
+        // actually render before the spinner fades out.
+        try? await Task.sleep(for: postCommitSpinnerDuration)
         isSyncing = false
     }
 
