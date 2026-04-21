@@ -11,11 +11,55 @@ simply blend in.
 """
 import base64
 import os
+from collections import deque
 from PIL import Image
 
 ASSETS = "/Users/rayray/Documents/Code/ClaudeTap/ClaudeTapWatch/Assets.xcassets"
 OUT = "/Users/rayray/Documents/Code/ClaudeTap/Shared/ClaudeSprites.swift"
 GRID = 512
+# Max RGB value a pixel can have and still be flood-filled as background.
+BG_THRESHOLD = 25
+
+
+def flood_fill_bg(img: Image.Image) -> Image.Image:
+    """Flood-fill from the image edges, making dark pixels connected to the
+    border transparent. Interior dark pixels (hammer, pencil, clock face)
+    are preserved because they're surrounded by bright character pixels.
+    Without this, the watch complication must render every pixel including
+    the entire black background and blows through its render budget."""
+    w, h = img.size
+    px = img.load()
+
+    def is_bg(x: int, y: int) -> bool:
+        r, g, b, _ = px[x, y]
+        return max(r, g, b) <= BG_THRESHOLD
+
+    visited = bytearray(w * h)
+    queue: deque[tuple[int, int]] = deque()
+
+    def seed(x: int, y: int) -> None:
+        if not visited[y * w + x] and is_bg(x, y):
+            visited[y * w + x] = 1
+            queue.append((x, y))
+
+    for x in range(w):
+        seed(x, 0)
+        seed(x, h - 1)
+    for y in range(h):
+        seed(0, y)
+        seed(w - 1, y)
+
+    while queue:
+        x, y = queue.popleft()
+        px[x, y] = (0, 0, 0, 0)
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < w and 0 <= ny < h and not visited[ny * w + nx] and is_bg(nx, ny):
+                visited[ny * w + nx] = 1
+                queue.append((nx, ny))
+
+    return img
+
 
 states = {
     "idle": "ClaudeIdle",
@@ -26,15 +70,17 @@ states = {
 
 
 def load_and_prepare(path: str, grid: int) -> bytes:
-    """Open the source image, pad to square if needed, downsample to grid×grid,
-    and return raw RGBA bytes (grid*grid*4)."""
+    """Open the source image, make the edge-connected black background
+    transparent, pad to square if needed, downsample to grid×grid, and return
+    raw RGBA bytes (grid*grid*4)."""
     img = Image.open(path).convert("RGBA")
+    img = flood_fill_bg(img)
 
     w, h = img.size
     side = max(w, h)
     if (w, h) != (side, side):
-        square = Image.new("RGBA", (side, side), (0, 0, 0, 255))
-        square.paste(img, ((side - w) // 2, (side - h) // 2))
+        square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+        square.paste(img, ((side - w) // 2, (side - h) // 2), img)
         img = square
 
     if img.size != (grid, grid):
