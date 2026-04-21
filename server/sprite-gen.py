@@ -72,10 +72,10 @@ states = {
 # source framing exactly). A small number = tight crop → character fills more
 # of the frame. A larger number = looser crop → character appears smaller.
 crop_margins: dict[str, float | None] = {
-    "idle": 0.06,
-    "working": 0.06,
-    "done": 0.12,
-    "approval": 0.03,
+    "idle": None,
+    "working": None,
+    "done": None,
+    "approval": None,
 }
 
 
