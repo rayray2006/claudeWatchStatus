@@ -1,14 +1,22 @@
 import Foundation
 import WatchConnectivity
 
+/// iOS-side WatchConnectivity glue. Sole job: share the signed-in session
+/// token with the paired Apple Watch so the Watch can authenticate to the
+/// backend (register its APNs device token).
+///
+/// Uses `updateApplicationContext` which is persistent — the Watch receives
+/// the latest context at next wake / launch regardless of reachability.
 final class WatchConnector: NSObject, ObservableObject, WCSessionDelegate, @unchecked Sendable {
     static let shared = WatchConnector()
 
     @Published var isWatchReachable = false
 
-    private override init() {
-        super.init()
-    }
+    /// The most recently shared session token. Replays on each activation so
+    /// Watch always has current state even after reinstall / reset.
+    private var currentSession: String?
+
+    private override init() { super.init() }
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -16,32 +24,28 @@ final class WatchConnector: NSObject, ObservableObject, WCSessionDelegate, @unch
         WCSession.default.activate()
     }
 
-    func sendState(_ state: TapState) {
+    /// Push a session token to the Watch. Pass nil to signal sign-out.
+    func shareSession(_ token: String?) {
+        currentSession = token
+        pushCurrentContext()
+    }
+
+    private func pushCurrentContext() {
         guard WCSession.default.activationState == .activated else { return }
-
-        let message: [String: Any] = [
-            "state": state.rawValue,
-            "timestamp": Date().timeIntervalSince1970
+        let context: [String: Any] = [
+            "sessionToken": currentSession ?? "",
+            "updatedAt": Date().timeIntervalSince1970,
         ]
-
-        // Use transferCurrentComplicationUserInfo for complication updates
-        // This is high-priority and wakes the watch extension
-        if WCSession.default.isComplicationEnabled {
-            WCSession.default.transferCurrentComplicationUserInfo(message)
-        } else if WCSession.default.isReachable {
-            WCSession.default.sendMessage(message, replyHandler: nil)
-        } else {
-            WCSession.default.transferUserInfo(message)
-        }
+        try? WCSession.default.updateApplicationContext(context)
     }
 
     // MARK: - WCSessionDelegate
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         let reachable = session.isReachable
-        DispatchQueue.main.async {
-            self.isWatchReachable = reachable
-        }
+        DispatchQueue.main.async { self.isWatchReachable = reachable }
+        // Replay the current context so newly-activated Watch picks up the session.
+        pushCurrentContext()
     }
 
     func sessionDidBecomeInactive(_ session: WCSession) {}
@@ -51,8 +55,6 @@ final class WatchConnector: NSObject, ObservableObject, WCSessionDelegate, @unch
 
     func sessionReachabilityDidChange(_ session: WCSession) {
         let reachable = session.isReachable
-        DispatchQueue.main.async {
-            self.isWatchReachable = reachable
-        }
+        DispatchQueue.main.async { self.isWatchReachable = reachable }
     }
 }

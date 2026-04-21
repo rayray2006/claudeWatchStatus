@@ -5,7 +5,7 @@ import Foundation
 /// Exchanges Sign In with Apple identity tokens for session tokens, manages
 /// the user's API keys, and forwards test pushes.
 actor APIClient {
-    static let baseURL = URL(string: "https://nudge-backend-psi.vercel.app")!
+    static let baseURL = BackendConfig.baseURL
 
     struct APIError: Error, LocalizedError {
         let status: Int

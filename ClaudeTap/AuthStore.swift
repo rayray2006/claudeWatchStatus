@@ -5,7 +5,7 @@ import AuthenticationServices
 @MainActor
 @Observable
 final class AuthStore: NSObject {
-    static let sessionKey = "nudge.session_token"
+    static let sessionKey = BackendConfig.sessionKeychainKey
 
     private(set) var sessionToken: String?
     private(set) var inProgress: Bool = false
@@ -16,6 +16,7 @@ final class AuthStore: NSObject {
     override init() {
         super.init()
         self.sessionToken = Keychain.read(Self.sessionKey)
+        WatchConnector.shared.shareSession(self.sessionToken)
     }
 
     var isSignedIn: Bool { sessionToken != nil }
@@ -34,6 +35,7 @@ final class AuthStore: NSObject {
             let session = try await api.signInWithApple(identityToken: idToken)
             Keychain.save(session, forKey: Self.sessionKey)
             sessionToken = session
+            WatchConnector.shared.shareSession(session)
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -43,6 +45,7 @@ final class AuthStore: NSObject {
     func signOut() {
         Keychain.delete(Self.sessionKey)
         sessionToken = nil
+        WatchConnector.shared.shareSession(nil)
     }
 
     /// Hard delete the account on the backend, then clear local state.

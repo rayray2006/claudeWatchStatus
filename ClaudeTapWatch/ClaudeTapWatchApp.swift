@@ -26,6 +26,8 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
         }
         // Recover state from any notifications delivered while the app was suspended.
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
+        // Start listening for the session token from iPhone via WatchConnectivity.
+        WatchSessionBridge.shared.activate()
     }
 
     /// Fires before `scenePhase` propagates to SwiftUI — gives us the earliest
@@ -44,6 +46,7 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
         let tokenString = deviceToken.map { String(format: "%02x", $0) }.joined()
         print("APNS_TOKEN: \(tokenString)")
         UserDefaults.standard.set(true, forKey: "apns_registered")
+        DeviceRegistrar.shared.setAPNs(tokenString)
     }
 
     func didFailToRegisterForRemoteNotificationsWithError(_ error: Error) {
