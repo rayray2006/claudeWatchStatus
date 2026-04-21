@@ -21,12 +21,18 @@ struct ComplicationEntryView: View {
 
     // MARK: - Circular Complication (primary)
     private var circularView: some View {
-        ClaudeSpriteView(state: entry.state)
+        Image(assetName)
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
     }
 
     // MARK: - Corner Complication
     private var cornerView: some View {
-        ClaudeSpriteView(state: entry.state)
+        Image(assetName)
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
             .widgetLabel {
                 Text(entry.state.label)
             }
@@ -40,11 +46,20 @@ struct ComplicationEntryView: View {
         }
     }
 
+    private var assetName: String {
+        switch entry.state {
+        case .idle:          return "ClaudeIdle"
+        case .working:       return "ClaudeWorking"
+        case .done:          return "ClaudeDone"
+        case .needsApproval: return "ClaudeApproval"
+        }
+    }
+
     private var inlineIcon: String {
         switch entry.state {
-        case .idle: return "sparkle"
-        case .working: return "ellipsis.circle"
-        case .done: return "checkmark.circle"
+        case .idle:          return "sparkle"
+        case .working:       return "ellipsis.circle"
+        case .done:          return "checkmark.circle"
         case .needsApproval: return "hand.raised"
         }
     }
