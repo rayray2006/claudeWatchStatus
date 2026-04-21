@@ -27,35 +27,55 @@ function makeJWT() {
     return `${header}.${payload}.${signature}`
 }
 
+// States where we want the user's attention (haptic + visible notification).
+// Everything else is a silent cache update.
+const ATTENTION_STATES = new Set(['done', 'approval'])
+
 /**
  * Send a state-change push to the Watch.
+ *
+ * Attention states (done, approval) send a user-visible alert push with NSE
+ * (haptic, banner, image attachment). Silent states (idle, working) send a
+ * background-type push that wakes the app just long enough to update its
+ * cache — no haptic, no notification.
+ *
+ * All pushes share the same apns-collapse-id so a new state always replaces
+ * the previous one in Notification Center (at most one visible entry).
+ *
  * @param {{ token: string, status: 'idle'|'working'|'done'|'approval' }} opts
  * @returns {Promise<{ ok: boolean, httpStatus: number, body: string }>}
  */
 export function sendPush({ token, status }) {
-    const alertBody = status === 'approval' ? 'Needs approval'
-                    : status === 'done'     ? 'Done'
-                    : status === 'idle'     ? 'Idle'
-                    : 'Working...'
+    const loud = ATTENTION_STATES.has(status)
 
-    const payload = {
-        aps: {
-            alert: { title: 'Claude', body: alertBody },
-            sound: 'default',
-            'content-available': 1,
-            'mutable-content': 1
-        },
-        status,
-        ts: Date.now()
-    }
+    const payload = loud
+        ? {
+            aps: {
+                alert: {
+                    title: 'Claude',
+                    body: status === 'approval' ? 'Needs approval' : 'Done'
+                },
+                sound: 'default',
+                'content-available': 1,
+                'mutable-content': 1
+            },
+            status,
+            ts: Date.now()
+        }
+        : {
+            aps: { 'content-available': 1 },
+            status,
+            ts: Date.now()
+        }
 
     const headers = {
         ':method': 'POST',
         ':path': `/3/device/${token}`,
         'authorization': `bearer ${makeJWT()}`,
         'apns-topic': TOPIC,
-        'apns-push-type': 'alert',
-        'apns-priority': '10',
+        'apns-push-type': loud ? 'alert' : 'background',
+        'apns-priority': loud ? '10' : '5',
+        'apns-collapse-id': 'claudetap-state',
         'apns-id': randomUUID(),
         'content-type': 'application/json'
     }
