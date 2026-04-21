@@ -23,6 +23,8 @@ class ExtensionDelegate: NSObject, WKApplicationDelegate {
                 WKExtension.shared().registerForRemoteNotifications()
             }
         }
+        // Recover state from any notifications delivered while the app was suspended
+        Task { await StateStore.shared.syncFromDeliveredNotifications() }
     }
 
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {

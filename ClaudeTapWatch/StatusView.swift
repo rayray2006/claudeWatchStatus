@@ -25,10 +25,10 @@ struct StatusView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
-        .onAppear { store.refreshFromDefaults() }
-        .onChange(of: scenePhase) { newPhase in
+        .task { await store.syncFromDeliveredNotifications() }
+        .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                store.refreshFromDefaults()
+                Task { await store.syncFromDeliveredNotifications() }
             }
         }
     }

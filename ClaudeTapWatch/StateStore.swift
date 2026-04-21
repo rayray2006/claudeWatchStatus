@@ -1,43 +1,73 @@
 import Foundation
+import UserNotifications
 import WidgetKit
 
-/// State holder backed by shared App Group UserDefaults.
-/// Reads from defaults so it picks up state changes written by background push handlers.
+/// Watch-side SwiftUI state holder for the current Claude Code status.
+///
+/// Source of truth, in order:
+///   1. In-flight pushes (foreground `willPresent`, tapped `didReceive`,
+///      background `didReceiveRemoteNotification`) — call `updateState`.
+///   2. Delivered notifications still in Notification Center — scanned on
+///      launch / foreground via `syncFromDeliveredNotifications`.
+///   3. Cached value in shared App Group UserDefaults — used for instant UI
+///      on app launch before the async scan completes.
+///
+/// Rationale: watchOS can suspend the app process, so the background push
+/// handler is unreliable. Notifications, however, are delivered by the system
+/// regardless of app state — so scanning them guarantees the app reflects the
+/// most recent push on every launch, even if nothing in our process ran while
+/// it was suspended.
 final class StateStore: ObservableObject, @unchecked Sendable {
     static let shared = StateStore()
 
     @Published var currentState: TapState = .idle
 
-    private let appGroup = "group.com.fm.claudetap"
-    private let stateKey = "claude_state"
+    private let appGroup = ClaudeTapConstants.appGroupID
+    private let stateKey = ClaudeTapConstants.Defaults.stateKey
+    private let stateTimeKey = ClaudeTapConstants.Defaults.stateTimeKey
 
     private init() {
-        refreshFromDefaults()
+        loadCached()
     }
 
-    /// Re-read state from shared UserDefaults. Call when app becomes active.
-    func refreshFromDefaults() {
-        guard let defaults = UserDefaults(suiteName: appGroup) else { return }
-        defaults.synchronize()
-        if let raw = defaults.string(forKey: stateKey),
-           let state = TapState(rawValue: raw) {
-            DispatchQueue.main.async {
-                self.currentState = state
+    /// Scan delivered notifications and adopt the newest `status` payload if
+    /// it's fresher than the cached state. Safe to call repeatedly.
+    func syncFromDeliveredNotifications() async {
+        let notifications = await UNUserNotificationCenter.current().deliveredNotifications()
+        let cachedTime = UserDefaults(suiteName: appGroup)?.double(forKey: stateTimeKey) ?? 0
+
+        let latest = notifications
+            .compactMap { note -> (Date, TapState)? in
+                guard let raw = note.request.content.userInfo["status"] as? String,
+                      let state = TapState(rawValue: raw) else { return nil }
+                return (note.date, state)
             }
-        }
+            .max(by: { $0.0 < $1.0 })
+
+        guard let (date, state) = latest,
+              date.timeIntervalSince1970 > cachedTime else { return }
+        persist(state, at: date)
     }
 
-    /// Write state to shared defaults and notify the widget.
+    /// Apply a state received in-flight (foreground delegate or background handler).
     func updateState(_ state: TapState) {
+        persist(state, at: Date())
+    }
+
+    private func loadCached() {
+        guard let defaults = UserDefaults(suiteName: appGroup),
+              let raw = defaults.string(forKey: stateKey),
+              let state = TapState(rawValue: raw) else { return }
+        DispatchQueue.main.async { self.currentState = state }
+    }
+
+    private func persist(_ state: TapState, at date: Date) {
         if let defaults = UserDefaults(suiteName: appGroup) {
             defaults.set(state.rawValue, forKey: stateKey)
-            defaults.set(Date().timeIntervalSince1970, forKey: "claude_state_time")
-            defaults.synchronize()
+            defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
         }
         DispatchQueue.main.async {
             self.currentState = state
-            // Multiple reload triggers — system honors them as best-effort
-            WidgetCenter.shared.reloadTimelines(ofKind: "ClaudeTapCircular")
             WidgetCenter.shared.reloadAllTimelines()
         }
     }
