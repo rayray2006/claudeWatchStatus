@@ -55,16 +55,20 @@ export function sendPush({ token, status }) {
                  status === 'working'  ? 'Working' :
                                          'Idle'
 
-    const payload = {
-        aps: {
-            alert: { title: 'Claude', body },
-            sound: 'default',
-            'content-available': 1,
-            'mutable-content': 1
-        },
-        status,
-        ts: Date.now()
+    const loud = status === 'approval' || status === 'done'
+
+    const aps = {
+        alert: { title: 'Claude', body },
+        'content-available': 1,
+        'mutable-content': 1,
+        // Set the interruption level directly in APNs for silent states so
+        // the system knows to suppress the haptic from the moment the push
+        // arrives — the NSE can't strip the haptic after the fact.
+        'interruption-level': loud ? 'active' : 'passive'
     }
+    if (loud) aps.sound = 'default'
+
+    const payload = { aps, status, ts: Date.now() }
 
     const headers = {
         ':method': 'POST',

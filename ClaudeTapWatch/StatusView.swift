@@ -8,29 +8,27 @@ struct StatusView: View {
     var body: some View {
         VStack(spacing: 8) {
             ZStack {
-                // Always mounted. When currentState changes, Canvas starts
-                // redrawing in the background — while the spinner overlay (if
-                // any) is still up, hiding the work-in-progress render.
+                // Always mounted — Canvas re-renders underneath the spinner
+                // so the new character is ready by the time the spinner fades.
                 PixelClaudeView(state: store.currentState, size: 140)
 
                 if store.isSyncing {
                     Color.black
-                        .transition(.opacity)
                     ProgressView()
                         .controlSize(.large)
                         .tint(.white)
                 }
             }
             .frame(width: 140, height: 140)
-            .animation(.easeInOut(duration: 0.18), value: store.isSyncing)
 
-            if !store.isSyncing {
-                Text(store.currentState.label)
-                    .font(.system(.headline, weight: .bold))
-                    .foregroundColor(statusColor)
-                    .transition(.opacity)
-            }
+            // Always rendered (so the VStack layout is stable across state
+            // transitions); opacity instead of conditional insertion.
+            Text(store.currentState.label)
+                .font(.system(.headline, weight: .bold))
+                .foregroundColor(statusColor)
+                .opacity(store.isSyncing ? 0 : 1)
         }
+        .animation(.easeInOut(duration: 0.18), value: store.isSyncing)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
         .task { await store.syncFromDeliveredNotifications() }

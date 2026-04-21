@@ -5,11 +5,11 @@ import WidgetKit
 /// `mutable-content: 1` arrives — even when the main watch app is suspended
 /// or terminated.
 ///
-/// IMPORTANT: the cache write (step 1 below) happens on every invocation
-/// regardless of whether the delivered notification is visible or silent.
-/// Setting `interruptionLevel = .passive` and clearing title/body only
-/// shapes how the notification itself displays — the side effects
-/// (UserDefaults write + widget reload) have already happened.
+/// IMPORTANT: the cache write happens on every invocation regardless of
+/// whether the delivered notification is visible or silent. Clearing the
+/// title/body and marking .passive only shapes how the notification displays
+/// — the side effects (UserDefaults write, widget reload) have already
+/// happened by the time contentHandler is called.
 final class NotificationService: UNNotificationServiceExtension {
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var bestAttemptContent: UNMutableNotificationContent?
@@ -35,23 +35,15 @@ final class NotificationService: UNNotificationServiceExtension {
         }
 
         // 2. Shape the notification for display.
-        if let raw, let content = bestAttemptContent {
-            if Self.attentionStates.contains(raw) {
-                // Full notification + Claude sprite attachment.
-                if let url = Bundle.main.url(forResource: raw, withExtension: "png"),
-                   let attachment = try? UNNotificationAttachment(identifier: raw, url: url, options: nil) {
-                    content.attachments = [attachment]
-                }
-            } else {
-                // Silent: delivered, but no haptic, no banner, no content.
-                content.title = ""
-                content.subtitle = ""
-                content.body = ""
-                content.sound = nil
-                content.attachments = []
-                content.interruptionLevel = .passive
-                content.relevanceScore = 0
-            }
+        if let raw, !Self.attentionStates.contains(raw),
+           let content = bestAttemptContent {
+            // Silent: delivered, but no haptic, no banner, no content.
+            content.title = ""
+            content.subtitle = ""
+            content.body = ""
+            content.sound = nil
+            content.interruptionLevel = .passive
+            content.relevanceScore = 0
         }
 
         contentHandler(bestAttemptContent ?? request.content)
