@@ -88,12 +88,15 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        // Only fires when the app is in the foreground. We update the state
+        // in-memory here; the banner/haptic is redundant since the user is
+        // already looking at the app — suppress it by passing no options.
         let raw = notification.request.content.userInfo["status"] as? String
         print("WILL_PRESENT status=\(raw ?? "<none>")")
         if let raw, let state = TapState(rawValue: raw) {
             MainActor.assumeIsolated { StateStore.shared.updateState(state) }
         }
-        completionHandler([.banner])
+        completionHandler([])
     }
 
     // User tapped notification
