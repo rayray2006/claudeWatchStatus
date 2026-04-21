@@ -68,9 +68,10 @@ def crop_to_square(image_path):
     # Square-ish images: extend horizontally so the character appears smaller in frame.
     aspect = w / h if h > 0 else 1.0
     if aspect < 1.3:
-        # Square-ish — extend width to match aspect ~2:1 like the wider sprites
-        new_w = int(h * 2.0)
-        side = new_w
+        # Square-ish (like the `done` gift sprite) — pad out so the character
+        # occupies a smaller fraction of the frame, matching the visual weight
+        # of the wider working/approval sprites.
+        side = int(h * 2.6)
     else:
         side = max(w, h)
 
