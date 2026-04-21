@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Convert the source PNGs into raw RGBA byte streams, base64-encoded and
+Convert the source images into raw RGBA byte streams, base64-encoded and
 embedded into Swift. The Watch renders them pixel-by-pixel via Canvas —
 no palette quantization, no PNG/UIImage decode at render time. Lossless
 at the chosen grid resolution.
 
-Grid: 512×512 (NEAREST downsample preserves the pixel-art blocks from the
-1024/1254 source images). The display sizes (~44pt complication, ~170pt
-watch home) never exceed this, so no visible detail is lost.
+Preserves the source image as-is. No background processing, no threshold.
+The app is rendered on a black background so black source backgrounds
+simply blend in.
 """
 import base64
 import os
@@ -16,9 +16,6 @@ from PIL import Image
 ASSETS = "/Users/rayray/Documents/Code/ClaudeTap/ClaudeTapWatch/Assets.xcassets"
 OUT = "/Users/rayray/Documents/Code/ClaudeTap/Shared/ClaudeSprites.swift"
 GRID = 512
-# Any pixel whose R, G, and B are all at or above this value is treated as
-# the white background of the source images and made fully transparent.
-WHITE_THRESHOLD = 240
 
 states = {
     "idle": "ClaudeIdle",
@@ -29,35 +26,23 @@ states = {
 
 
 def load_and_prepare(path: str, grid: int) -> bytes:
-    """Open the source PNG, map white background to transparent, pad to square,
-    downsample to grid × grid, and return raw RGBA bytes (grid*grid*4)."""
+    """Open the source image, pad to square if needed, downsample to grid×grid,
+    and return raw RGBA bytes (grid*grid*4)."""
     img = Image.open(path).convert("RGBA")
 
-    # Map near-white background to transparent. Source images are RGB-on-white
-    # with no real alpha channel.
-    px = img.load()
     w, h = img.size
-    for y in range(h):
-        for x in range(w):
-            r, g, b, _ = px[x, y]
-            if r >= WHITE_THRESHOLD and g >= WHITE_THRESHOLD and b >= WHITE_THRESHOLD:
-                px[x, y] = (0, 0, 0, 0)
-
-    # Pad to square (doesn't crop anything).
     side = max(w, h)
     if (w, h) != (side, side):
-        square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-        square.paste(img, ((side - w) // 2, (side - h) // 2), img)
+        square = Image.new("RGBA", (side, side), (0, 0, 0, 255))
+        square.paste(img, ((side - w) // 2, (side - h) // 2))
         img = square
 
-    # NEAREST preserves the blocky pixel-art edges.
     if img.size != (grid, grid):
         img = img.resize((grid, grid), Image.NEAREST)
 
     return img.tobytes()  # raw RGBA, row-major, top-left origin
 
 
-# Generate Swift
 lines: list[str] = [
     "import SwiftUI",
     "",
