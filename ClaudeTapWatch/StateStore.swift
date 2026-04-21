@@ -3,8 +3,8 @@ import WidgetKit
 
 /// State holder backed by shared App Group UserDefaults.
 /// Reads from defaults so it picks up state changes written by background push handlers.
-final class NtfyWatchService: ObservableObject, @unchecked Sendable {
-    static let shared = NtfyWatchService()
+final class StateStore: ObservableObject, @unchecked Sendable {
+    static let shared = StateStore()
 
     @Published var currentState: TapState = .idle
 

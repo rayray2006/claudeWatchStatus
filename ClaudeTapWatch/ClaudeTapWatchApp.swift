@@ -40,7 +40,7 @@ class ExtensionDelegate: NSObject, WKApplicationDelegate {
     func didReceiveRemoteNotification(_ userInfo: [AnyHashable: Any]) async -> WKBackgroundFetchResult {
         if let status = userInfo["status"] as? String,
            let state = TapState(rawValue: status) {
-            NtfyWatchService.shared.updateState(state)
+            StateStore.shared.updateState(state)
             await MainActor.run {
                 // Schedule background refresh as a backup trigger for the widget
                 WKExtension.shared().scheduleBackgroundRefresh(
@@ -74,7 +74,7 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
     ) {
         if let status = notification.request.content.userInfo["status"] as? String,
            let state = TapState(rawValue: status) {
-            NtfyWatchService.shared.updateState(state)
+            StateStore.shared.updateState(state)
         }
         completionHandler([.banner])
     }
@@ -87,7 +87,7 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
     ) {
         if let status = response.notification.request.content.userInfo["status"] as? String,
            let state = TapState(rawValue: status) {
-            NtfyWatchService.shared.updateState(state)
+            StateStore.shared.updateState(state)
         }
         completionHandler()
     }

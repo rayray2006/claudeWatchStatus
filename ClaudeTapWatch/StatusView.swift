@@ -2,15 +2,15 @@ import SwiftUI
 import WidgetKit
 
 struct StatusView: View {
-    @StateObject private var ntfy = NtfyWatchService.shared
+    @StateObject private var store = StateStore.shared
     @AppStorage("apns_registered") private var apnsRegistered: Bool = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         VStack(spacing: 6) {
-            PixelClaudeView(state: ntfy.currentState, size: 140)
+            PixelClaudeView(state: store.currentState, size: 140)
 
-            Text(ntfy.currentState.label)
+            Text(store.currentState.label)
                 .font(.system(.headline, weight: .bold))
                 .foregroundColor(statusColor)
 
@@ -25,16 +25,16 @@ struct StatusView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
-        .onAppear { ntfy.refreshFromDefaults() }
+        .onAppear { store.refreshFromDefaults() }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
-                ntfy.refreshFromDefaults()
+                store.refreshFromDefaults()
             }
         }
     }
 
     private var statusColor: Color {
-        switch ntfy.currentState {
+        switch store.currentState {
         case .idle: return .gray
         case .working: return .orange
         case .done: return .green
