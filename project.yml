@@ -82,6 +82,10 @@ targets:
     platform: watchOS
     sources:
       - path: ClaudeTapNotificationService
+        excludes:
+          - Resources/**
+      - path: ClaudeTapNotificationService/Resources
+        buildPhase: resources
       - path: Shared/Constants.swift
     info:
       path: ClaudeTapNotificationService/Info.plist
