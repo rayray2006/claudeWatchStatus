@@ -1,0 +1,6 @@
+{
+  "name": "claudetap-apns",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "APNs sender for ClaudeTap"
+}

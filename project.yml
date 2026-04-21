@@ -1,0 +1,110 @@
+name: ClaudeTap
+options:
+  bundleIdPrefix: com.fm
+  deploymentTarget:
+    iOS: "18.0"
+    watchOS: "11.0"
+  xcodeVersion: "16.0"
+  groupSortPosition: top
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: NJ4Z2645XA
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "Apple Development"
+
+targets:
+  ClaudeTap:
+    type: application
+    platform: iOS
+    sources:
+      - path: ClaudeTap
+      - path: Shared
+    dependencies:
+      - target: ClaudeTapWidgetiOS
+    info:
+      path: ClaudeTap/Info.plist
+      properties:
+        CFBundleDisplayName: ClaudeTap
+        UILaunchScreen: {}
+        NSSupportsLiveActivities: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap
+        CODE_SIGN_ENTITLEMENTS: ClaudeTap/ClaudeTap.entitlements
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
+
+  ClaudeTapWidgetiOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ClaudeTapWidgetiOS
+      - path: Shared/ClaudeTapActivity.swift
+      - path: Shared/TapState.swift
+      - path: Shared/ClaudeSprites.swift
+    info:
+      path: ClaudeTapWidgetiOS/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.widget
+        CODE_SIGN_ENTITLEMENTS: ClaudeTapWidgetiOS/ClaudeTapWidgetiOS.entitlements
+
+  ClaudeTapWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: ClaudeTapWatch
+      - path: ClaudeTapWatch/Assets.xcassets
+      - path: Shared
+      - path: ClaudeTapComplication/ClaudeCharacter.swift
+    dependencies:
+      - target: ClaudeTapComplication
+    info:
+      path: ClaudeTapWatch/Info.plist
+      properties:
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.fm.claudetap
+        WKRunsIndependentlyOfCompanionApp: true
+        WKBackgroundModes:
+          - remote-notification
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp
+        CODE_SIGN_ENTITLEMENTS: ClaudeTapWatch/ClaudeTapWatch.entitlements
+
+  ClaudeTapComplication:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: ClaudeTapComplication
+      - path: Shared
+      - path: ClaudeTapWatch/Assets.xcassets
+    info:
+      path: ClaudeTapComplication/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp.widget
+        CODE_SIGN_ENTITLEMENTS: ClaudeTapComplication/ClaudeTapComplication.entitlements
+
+schemes:
+  ClaudeTap:
+    build:
+      targets:
+        ClaudeTap: all
+        ClaudeTapWatch: all
+        ClaudeTapComplication: all
+    run:
+      config: Debug
+    test:
+      config: Debug

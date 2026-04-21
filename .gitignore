@@ -1,0 +1,35 @@
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+build/
+DerivedData/
+*.moved-aside
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Claude
+.claude/
+
+# Secrets — APNs auth key, device-specific tokens
+server/AuthKey_*.p8
+server/device-token.txt
+server/activity-token.txt
+server/node_modules/
+
+# Generated Xcode project (regenerate from project.yml via xcodegen)
+ClaudeTap.xcodeproj/
+
+# Build artifacts
+build/
