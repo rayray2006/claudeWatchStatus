@@ -74,8 +74,8 @@ states = {
 crop_margins: dict[str, float | None] = {
     "idle": 0.06,
     "working": 0.06,
-    "done": None,        # user prefers done at its original framing
-    "approval": 0.06,
+    "done": 0.12,
+    "approval": 0.03,
 }
 
 
