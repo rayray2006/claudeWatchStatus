@@ -30,13 +30,11 @@ final class StateStore: ObservableObject {
     private init() {
         // Synchronous cache read — first render paints the cached state,
         // no `.idle` flash, no run-loop hop.
-        if let raw = UserDefaults(suiteName: ClaudeTapConstants.appGroupID)?
-            .string(forKey: ClaudeTapConstants.Defaults.stateKey),
-           let state = TapState(rawValue: raw) {
-            self.currentState = state
-        } else {
-            self.currentState = .idle
-        }
+        let raw = UserDefaults(suiteName: ClaudeTapConstants.appGroupID)?
+            .string(forKey: ClaudeTapConstants.Defaults.stateKey)
+        let state = raw.flatMap(TapState.init(rawValue:)) ?? .idle
+        self.currentState = state
+        print("STORE_INIT cached=\(raw ?? "<nil>") state=\(state.rawValue)")
     }
 
     /// Scan delivered notifications and adopt the newest `status` payload if
@@ -45,16 +43,16 @@ final class StateStore: ObservableObject {
         let notifications = await UNUserNotificationCenter.current().deliveredNotifications()
         let cachedTime = UserDefaults(suiteName: appGroup)?.double(forKey: stateTimeKey) ?? 0
 
-        let latest = notifications
-            .compactMap { note -> (Date, TapState)? in
-                guard let raw = note.request.content.userInfo["status"] as? String,
-                      let state = TapState(rawValue: raw) else { return nil }
-                return (note.date, state)
-            }
-            .max(by: { $0.0 < $1.0 })
+        let candidates = notifications.compactMap { note -> (Date, TapState)? in
+            guard let raw = note.request.content.userInfo["status"] as? String,
+                  let state = TapState(rawValue: raw) else { return nil }
+            return (note.date, state)
+        }
+        print("SYNC delivered=\(notifications.count) with-status=\(candidates.count) cachedTime=\(cachedTime)")
 
-        guard let (date, state) = latest,
-              date.timeIntervalSince1970 > cachedTime else { return }
+        guard let (date, state) = candidates.max(by: { $0.0 < $1.0 }) else { return }
+        print("SYNC latest=\(state.rawValue)@\(date.timeIntervalSince1970) vs cached=\(cachedTime)")
+        guard date.timeIntervalSince1970 > cachedTime else { return }
         persist(state, at: date)
     }
 
@@ -64,6 +62,7 @@ final class StateStore: ObservableObject {
     }
 
     private func persist(_ state: TapState, at date: Date) {
+        print("PERSIST \(state.rawValue)@\(date.timeIntervalSince1970)")
         if let defaults = UserDefaults(suiteName: appGroup) {
             defaults.set(state.rawValue, forKey: stateKey)
             defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)

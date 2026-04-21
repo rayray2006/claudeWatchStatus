@@ -31,6 +31,12 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     /// Fires before `scenePhase` propagates to SwiftUI — gives us the earliest
     /// possible hook to sync state on every app resume.
     func applicationWillEnterForeground() {
+        print("WILL_ENTER_FOREGROUND")
+        Task { await StateStore.shared.syncFromDeliveredNotifications() }
+    }
+
+    func applicationDidBecomeActive() {
+        print("DID_BECOME_ACTIVE")
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
     }
 
@@ -47,8 +53,9 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     /// Called when a push arrives with content-available:1 — even if app is in background.
     /// This is how we catch state changes that happen while the app is closed.
     func didReceiveRemoteNotification(_ userInfo: [AnyHashable: Any]) async -> WKBackgroundFetchResult {
-        if let status = userInfo["status"] as? String,
-           let state = TapState(rawValue: status) {
+        let raw = userInfo["status"] as? String
+        print("DID_RECEIVE_REMOTE status=\(raw ?? "<none>")")
+        if let raw, let state = TapState(rawValue: raw) {
             StateStore.shared.updateState(state)
             // Schedule background refresh as a backup trigger for the widget.
             WKExtension.shared().scheduleBackgroundRefresh(
@@ -81,8 +88,9 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        if let raw = notification.request.content.userInfo["status"] as? String,
-           let state = TapState(rawValue: raw) {
+        let raw = notification.request.content.userInfo["status"] as? String
+        print("WILL_PRESENT status=\(raw ?? "<none>")")
+        if let raw, let state = TapState(rawValue: raw) {
             MainActor.assumeIsolated { StateStore.shared.updateState(state) }
         }
         completionHandler([.banner])
@@ -94,8 +102,9 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if let raw = response.notification.request.content.userInfo["status"] as? String,
-           let state = TapState(rawValue: raw) {
+        let raw = response.notification.request.content.userInfo["status"] as? String
+        print("DID_RECEIVE status=\(raw ?? "<none>")")
+        if let raw, let state = TapState(rawValue: raw) {
             MainActor.assumeIsolated { StateStore.shared.updateState(state) }
         }
         completionHandler()

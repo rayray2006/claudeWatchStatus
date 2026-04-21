@@ -21,10 +21,16 @@ final class NotificationService: UNNotificationServiceExtension {
         self.contentHandler = contentHandler
         self.bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent
 
+        let status = request.content.userInfo["status"] as? String ?? "<none>"
+        let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID)
+        print("NSE_FIRED status=\(status) defaults=\(defaults != nil ? "ok" : "nil")")
+
         if let raw = request.content.userInfo["status"] as? String,
-           let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID) {
+           let defaults {
             defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
             defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
+            let readback = defaults.string(forKey: ClaudeTapConstants.Defaults.stateKey) ?? "<nil>"
+            print("NSE_WROTE \(raw) readback=\(readback)")
             WidgetCenter.shared.reloadAllTimelines()
         }
 
