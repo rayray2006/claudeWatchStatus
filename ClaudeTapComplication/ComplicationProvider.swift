@@ -23,8 +23,8 @@ struct ClaudeTapComplicationProvider: TimelineProvider {
         let now = Date()
         let (state, stateTime) = cachedStateAndTime()
 
-        // Stale already → idle now and we're done until next push.
-        if state != .idle, now.timeIntervalSince(stateTime) >= Self.staleAfter {
+        // Only `done` auto-reverts to idle — the other states stay as-is.
+        if state == .done, now.timeIntervalSince(stateTime) >= Self.staleAfter {
             let entry = ClaudeTapEntry(date: now, state: .idle, frame: 0)
             completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(300))))
             return
@@ -32,8 +32,7 @@ struct ClaudeTapComplicationProvider: TimelineProvider {
 
         var entries: [ClaudeTapEntry] = [ClaudeTapEntry(date: now, state: state, frame: 0)]
 
-        // Schedule the auto-revert to idle at the stale boundary.
-        if state != .idle {
+        if state == .done {
             let revertAt = stateTime.addingTimeInterval(Self.staleAfter)
             if revertAt > now {
                 entries.append(ClaudeTapEntry(date: revertAt, state: .idle, frame: 0))

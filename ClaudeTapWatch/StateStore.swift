@@ -25,11 +25,13 @@ final class StateStore: ObservableObject {
     private let preCommitDelay: Duration = .milliseconds(200)
     private let postCommitDelay: Duration = .milliseconds(700)
 
-    /// Any non-idle state auto-reverts to idle this many seconds after its
-    /// last push. Claude Code's PreToolUse hook fires continuously during a
-    /// long task, so working keeps getting refreshed; if Claude finishes or
-    /// crashes, the state quietly drops back to idle.
+    /// Only `done` auto-expires: it's a transient completion state and we
+    /// don't want "Done" sitting on the watch face forever. `needsApproval`
+    /// stays until the user acts on it; `working` is always terminated by
+    /// another push (done / approval). `idle` doesn't expire either.
     static let staleAfter: TimeInterval = 5 * 60
+
+    private func shouldAutoRevert(_ state: TapState) -> Bool { state == .done }
 
     private var staleTimer: Timer?
 
@@ -43,9 +45,9 @@ final class StateStore: ObservableObject {
         let time = defaults?.double(forKey: ClaudeTapConstants.Defaults.stateTimeKey) ?? 0
         var state = raw.flatMap(TapState.init(rawValue:)) ?? .idle
 
-        // On launch: if the cached state is non-idle but its last push is
+        // On launch: if the cached state is `done` and its last push is
         // older than the stale threshold, go straight to idle.
-        if state != .idle, time > 0,
+        if state == .done, time > 0,
            Date().timeIntervalSince1970 - time >= Self.staleAfter {
             state = .idle
         }
@@ -99,9 +101,9 @@ final class StateStore: ObservableObject {
             targetDate = nil
         }
 
-        // Stale check: if the resolved target is non-idle but too old, idle.
+        // Stale check: `done` expires to idle; other states don't.
         let targetTimestamp = targetDate?.timeIntervalSince1970 ?? cachedTime
-        if targetState != .idle, targetTimestamp > 0,
+        if targetState == .done, targetTimestamp > 0,
            Date().timeIntervalSince1970 - targetTimestamp >= Self.staleAfter {
             targetState = .idle
             targetDate = Date()
@@ -149,7 +151,7 @@ final class StateStore: ObservableObject {
         staleTimer?.invalidate()
         staleTimer = nil
 
-        guard currentState != .idle else { return }
+        guard shouldAutoRevert(currentState) else { return }
 
         let time = UserDefaults(suiteName: appGroup)?.double(forKey: stateTimeKey) ?? 0
         let elapsed = Date().timeIntervalSince1970 - time
@@ -162,7 +164,7 @@ final class StateStore: ObservableObject {
 
         let timer = Timer(timeInterval: remaining, repeats: false) { [weak self] _ in
             Task { @MainActor in
-                guard let self, self.currentState != .idle else { return }
+                guard let self, self.shouldAutoRevert(self.currentState) else { return }
                 self.persist(.idle, at: Date())
             }
         }
