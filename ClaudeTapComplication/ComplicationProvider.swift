@@ -37,6 +37,9 @@ struct ClaudeTapComplicationProvider: TimelineProvider {
     }
 
     private func currentState() -> TapState {
-        SharedState.load()?.state ?? .idle
+        guard let raw = ClaudeTapConstants.sharedDefaults?.string(
+            forKey: ClaudeTapConstants.Defaults.stateKey
+        ) else { return .idle }
+        return TapState(rawValue: raw) ?? .idle
     }
 }

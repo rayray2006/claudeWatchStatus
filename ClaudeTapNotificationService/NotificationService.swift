@@ -5,13 +5,11 @@ import WidgetKit
 /// `mutable-content: 1` arrives — even when the main watch app is suspended
 /// or terminated.
 ///
-/// Responsibilities:
-///   1. Write the new state to the shared file in the App Group container.
-///      Files are cross-process-coherent; UserDefaults is not on watchOS.
-///   2. Shape the notification for display:
-///      - done/approval → keep content, attach the matching Claude sprite
-///      - idle/working  → clear content, set .passive, no haptic or banner
-///   3. Reload the complication timeline.
+/// IMPORTANT: the cache write (step 1 below) happens on every invocation
+/// regardless of whether the delivered notification is visible or silent.
+/// Setting `interruptionLevel = .passive` and clearing title/body only
+/// shapes how the notification itself displays — the side effects
+/// (UserDefaults write + widget reload) have already happened.
 final class NotificationService: UNNotificationServiceExtension {
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var bestAttemptContent: UNMutableNotificationContent?
@@ -28,21 +26,24 @@ final class NotificationService: UNNotificationServiceExtension {
         let raw = request.content.userInfo["status"] as? String
         print("NSE_FIRED status=\(raw ?? "<none>")")
 
-        // 1. Persist to the shared file (unconditionally for any valid state).
-        if let raw, let state = TapState(rawValue: raw) {
-            SharedState.save(state)
-            print("NSE_SAVED_FILE \(raw)")
+        // 1. Cache update (always).
+        if let raw, let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID) {
+            defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
+            defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
             WidgetCenter.shared.reloadAllTimelines()
+            print("NSE_WROTE \(raw)")
         }
 
-        // 2. Shape the notification.
+        // 2. Shape the notification for display.
         if let raw, let content = bestAttemptContent {
             if Self.attentionStates.contains(raw) {
+                // Full notification + Claude sprite attachment.
                 if let url = Bundle.main.url(forResource: raw, withExtension: "png"),
                    let attachment = try? UNNotificationAttachment(identifier: raw, url: url, options: nil) {
                     content.attachments = [attachment]
                 }
             } else {
+                // Silent: delivered, but no haptic, no banner, no content.
                 content.title = ""
                 content.subtitle = ""
                 content.body = ""
