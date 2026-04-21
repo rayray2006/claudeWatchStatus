@@ -25,16 +25,34 @@ final class StateStore: ObservableObject {
     private let preCommitDelay: Duration = .milliseconds(200)
     private let postCommitDelay: Duration = .milliseconds(700)
 
+    /// Any non-idle state auto-reverts to idle this many seconds after its
+    /// last push. Claude Code's PreToolUse hook fires continuously during a
+    /// long task, so working keeps getting refreshed; if Claude finishes or
+    /// crashes, the state quietly drops back to idle.
+    static let staleAfter: TimeInterval = 5 * 60
+
+    private var staleTimer: Timer?
+
     private let appGroup = ClaudeTapConstants.appGroupID
     private let stateKey = ClaudeTapConstants.Defaults.stateKey
     private let stateTimeKey = ClaudeTapConstants.Defaults.stateTimeKey
 
     private init() {
-        let raw = UserDefaults(suiteName: ClaudeTapConstants.appGroupID)?
-            .string(forKey: ClaudeTapConstants.Defaults.stateKey)
-        let state = raw.flatMap(TapState.init(rawValue:)) ?? .idle
+        let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID)
+        let raw = defaults?.string(forKey: ClaudeTapConstants.Defaults.stateKey)
+        let time = defaults?.double(forKey: ClaudeTapConstants.Defaults.stateTimeKey) ?? 0
+        var state = raw.flatMap(TapState.init(rawValue:)) ?? .idle
+
+        // On launch: if the cached state is non-idle but its last push is
+        // older than the stale threshold, go straight to idle.
+        if state != .idle, time > 0,
+           Date().timeIntervalSince1970 - time >= Self.staleAfter {
+            state = .idle
+        }
+
         self.currentState = state
         print("STORE_INIT cached=\(raw ?? "<nil>") state=\(state.rawValue)")
+        scheduleStaleRevert()
     }
 
     /// Re-read the cache. Returns the new state if it differs, nil otherwise.
@@ -68,8 +86,8 @@ final class StateStore: ObservableObject {
 
         // Prefer whichever signal is fresher between the cached write and the
         // most recent delivered notification.
-        let targetState: TapState
-        let targetDate: Date?
+        var targetState: TapState
+        var targetDate: Date?
         if let (date, state) = latestNotif, date.timeIntervalSince1970 > cachedTime {
             targetState = state
             targetDate = date
@@ -79,6 +97,14 @@ final class StateStore: ObservableObject {
         } else {
             targetState = currentState
             targetDate = nil
+        }
+
+        // Stale check: if the resolved target is non-idle but too old, idle.
+        let targetTimestamp = targetDate?.timeIntervalSince1970 ?? cachedTime
+        if targetState != .idle, targetTimestamp > 0,
+           Date().timeIntervalSince1970 - targetTimestamp >= Self.staleAfter {
+            targetState = .idle
+            targetDate = Date()
         }
 
         print("SYNC target=\(targetState.rawValue) current=\(currentState.rawValue)")
@@ -111,5 +137,36 @@ final class StateStore: ObservableObject {
         }
         currentState = state
         WidgetCenter.shared.reloadAllTimelines()
+        scheduleStaleRevert()
+    }
+
+    /// Schedule a local timer that reverts to idle once the current state
+    /// passes the stale threshold. Cancels any previously-scheduled revert.
+    /// Only runs while the app process is alive — the cold-open staleness
+    /// check in `init` and the complication's future timeline entries cover
+    /// the cases where the app is suspended when the threshold passes.
+    private func scheduleStaleRevert() {
+        staleTimer?.invalidate()
+        staleTimer = nil
+
+        guard currentState != .idle else { return }
+
+        let time = UserDefaults(suiteName: appGroup)?.double(forKey: stateTimeKey) ?? 0
+        let elapsed = Date().timeIntervalSince1970 - time
+        let remaining = Self.staleAfter - elapsed
+
+        if remaining <= 0 {
+            persist(.idle, at: Date())
+            return
+        }
+
+        let timer = Timer(timeInterval: remaining, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.currentState != .idle else { return }
+                self.persist(.idle, at: Date())
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        staleTimer = timer
     }
 }

@@ -4,42 +4,55 @@ import SwiftUI
 struct ClaudeTapEntry: TimelineEntry {
     let date: Date
     let state: TapState
-    let frame: Int // For animation frames (0-2)
+    let frame: Int
 }
 
 struct ClaudeTapComplicationProvider: TimelineProvider {
+    /// Must match StateStore.staleAfter.
+    private static let staleAfter: TimeInterval = 5 * 60
+
     func placeholder(in context: Context) -> ClaudeTapEntry {
         ClaudeTapEntry(date: .now, state: .idle, frame: 0)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ClaudeTapEntry) -> Void) {
-        let state = currentState()
-        completion(ClaudeTapEntry(date: .now, state: state, frame: 0))
+        completion(ClaudeTapEntry(date: .now, state: currentState(), frame: 0))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ClaudeTapEntry>) -> Void) {
-        let state = currentState()
+        let now = Date()
+        let (state, stateTime) = cachedStateAndTime()
 
-        if state == .working {
-            var entries: [ClaudeTapEntry] = []
-            let now = Date()
-            for i in 0..<30 {
-                let entryDate = now.addingTimeInterval(Double(i) * 2.0)
-                entries.append(ClaudeTapEntry(date: entryDate, state: .working, frame: i % 3))
-            }
-            let timeline = Timeline(entries: entries, policy: .after(now.addingTimeInterval(60)))
-            completion(timeline)
-        } else {
-            let entry = ClaudeTapEntry(date: .now, state: state, frame: 0)
-            let timeline = Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(300)))
-            completion(timeline)
+        // Stale already → idle now and we're done until next push.
+        if state != .idle, now.timeIntervalSince(stateTime) >= Self.staleAfter {
+            let entry = ClaudeTapEntry(date: now, state: .idle, frame: 0)
+            completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(300))))
+            return
         }
+
+        var entries: [ClaudeTapEntry] = [ClaudeTapEntry(date: now, state: state, frame: 0)]
+
+        // Schedule the auto-revert to idle at the stale boundary.
+        if state != .idle {
+            let revertAt = stateTime.addingTimeInterval(Self.staleAfter)
+            if revertAt > now {
+                entries.append(ClaudeTapEntry(date: revertAt, state: .idle, frame: 0))
+            }
+        }
+
+        let lastDate = entries.last?.date ?? now
+        completion(Timeline(entries: entries, policy: .after(lastDate.addingTimeInterval(300))))
     }
 
     private func currentState() -> TapState {
-        guard let raw = ClaudeTapConstants.sharedDefaults?.string(
-            forKey: ClaudeTapConstants.Defaults.stateKey
-        ) else { return .idle }
-        return TapState(rawValue: raw) ?? .idle
+        cachedStateAndTime().0
+    }
+
+    private func cachedStateAndTime() -> (TapState, Date) {
+        let defaults = ClaudeTapConstants.sharedDefaults
+        let raw = defaults?.string(forKey: ClaudeTapConstants.Defaults.stateKey) ?? ""
+        let time = defaults?.double(forKey: ClaudeTapConstants.Defaults.stateTimeKey) ?? 0
+        let state = TapState(rawValue: raw) ?? .idle
+        return (state, Date(timeIntervalSince1970: time))
     }
 }
