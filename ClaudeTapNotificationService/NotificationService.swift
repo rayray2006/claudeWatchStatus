@@ -2,22 +2,20 @@ import UserNotifications
 import WidgetKit
 
 /// Runs in a tiny separate process every time an APNs push with
-/// `mutable-content: 1` arrives — even when the main watch app is suspended or
-/// terminated.
+/// `mutable-content: 1` arrives — even when the main watch app is suspended
+/// or terminated.
 ///
 /// Responsibilities:
-///   1. Write the new state to the shared App Group UserDefaults BEFORE the
-///      notification is displayed. Guarantees the watch app / complication
-///      reflect the latest push on next render.
-///   2. Shape the notification:
-///      - done/approval: keep the alert content, attach the Claude sprite.
-///      - idle/working : strip the alert content and mark passive — the
-///        notification is delivered silently for cache-update purposes only.
+///   1. Write the new state to the shared file in the App Group container.
+///      Files are cross-process-coherent; UserDefaults is not on watchOS.
+///   2. Shape the notification for display:
+///      - done/approval → keep content, attach the matching Claude sprite
+///      - idle/working  → clear content, set .passive, no haptic or banner
+///   3. Reload the complication timeline.
 final class NotificationService: UNNotificationServiceExtension {
     private var contentHandler: ((UNNotificationContent) -> Void)?
     private var bestAttemptContent: UNMutableNotificationContent?
 
-    /// States that deserve user attention (haptic + visible content).
     private static let attentionStates: Set<String> = ["done", "approval"]
 
     override func didReceive(
@@ -30,23 +28,21 @@ final class NotificationService: UNNotificationServiceExtension {
         let raw = request.content.userInfo["status"] as? String
         print("NSE_FIRED status=\(raw ?? "<none>")")
 
-        // 1. Cache update (always, regardless of state).
-        if let raw, let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID) {
-            defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
-            defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
+        // 1. Persist to the shared file (unconditionally for any valid state).
+        if let raw, let state = TapState(rawValue: raw) {
+            SharedState.save(state)
+            print("NSE_SAVED_FILE \(raw)")
             WidgetCenter.shared.reloadAllTimelines()
         }
 
         // 2. Shape the notification.
         if let raw, let content = bestAttemptContent {
             if Self.attentionStates.contains(raw) {
-                // Full notification: keep alert content, attach the sprite.
                 if let url = Bundle.main.url(forResource: raw, withExtension: "png"),
                    let attachment = try? UNNotificationAttachment(identifier: raw, url: url, options: nil) {
                     content.attachments = [attachment]
                 }
             } else {
-                // Silent state: deliver, but make the notification invisible.
                 content.title = ""
                 content.subtitle = ""
                 content.body = ""

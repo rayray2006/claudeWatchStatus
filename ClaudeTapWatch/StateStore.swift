@@ -5,18 +5,18 @@ import WidgetKit
 /// Watch-side SwiftUI state holder for the current Claude Code status.
 ///
 /// Source of truth, in order:
-///   1. In-flight pushes (foreground `willPresent`, tapped `didReceive`,
-///      background `didReceiveRemoteNotification`) — call `updateState`.
-///   2. Delivered notifications still in Notification Center — scanned on
-///      launch / foreground via `syncFromDeliveredNotifications`.
-///   3. Cached value in shared App Group UserDefaults — read synchronously
-///      in `init` so the first SwiftUI render paints the right state.
+///   1. In-flight pushes processed while the app is open (willPresent,
+///      didReceive, didReceiveRemoteNotification) — call `updateState`.
+///   2. The shared file written by the Notification Service Extension when
+///      pushes arrive while the app is suspended or terminated. Read
+///      synchronously in `init` and whenever the scene becomes active.
+///   3. Delivered notifications in Notification Center — scanned on launch
+///      as a tertiary fallback.
 ///
-/// Rationale: watchOS can suspend the app process, so the background push
-/// handler is unreliable. Notifications, however, are delivered by the system
-/// regardless of app state — so scanning them guarantees the app reflects the
-/// most recent push on every launch, even if nothing in our process ran while
-/// it was suspended.
+/// Why a file and not UserDefaults: watchOS doesn't coherently propagate
+/// UserDefaults writes across processes. The NSE writes fine, but the main
+/// app can keep reading a stale cached value. File I/O always hits disk
+/// and so is reliably cross-process.
 @MainActor
 final class StateStore: ObservableObject {
     static let shared = StateStore()
@@ -24,110 +24,78 @@ final class StateStore: ObservableObject {
     @Published private(set) var currentState: TapState
 
     /// True while a sync is in flight AND that sync will change `currentState`.
-    /// The UI uses this to show a loading indicator *only* when the displayed
-    /// state is stale and is about to be corrected.
     @Published private(set) var isSyncing: Bool = false
 
-    /// Yield so SwiftUI renders the spinner frame before we swap state.
     private let preCommitDelay: Duration = .milliseconds(200)
-    /// Time the spinner stays up after state commits. The character is being
-    /// re-drawn by Canvas underneath the spinner during this window — once the
-    /// spinner fades, the new character is visible without a black gap.
     private let postCommitDelay: Duration = .milliseconds(700)
 
-    private let appGroup = ClaudeTapConstants.appGroupID
-    private let stateKey = ClaudeTapConstants.Defaults.stateKey
-    private let stateTimeKey = ClaudeTapConstants.Defaults.stateTimeKey
-
     private init() {
-        // Synchronous cache read — first render paints the cached state.
-        let raw = UserDefaults(suiteName: ClaudeTapConstants.appGroupID)?
-            .string(forKey: ClaudeTapConstants.Defaults.stateKey)
-        let state = raw.flatMap(TapState.init(rawValue:)) ?? .idle
-        self.currentState = state
-        print("STORE_INIT cached=\(raw ?? "<nil>") state=\(state.rawValue)")
+        let entry = SharedState.load()
+        self.currentState = entry?.state ?? .idle
+        print("STORE_INIT state=\(entry?.state.rawValue ?? "<nil>")")
     }
 
-    /// Bring the in-memory state in line with whatever the cache currently holds.
-    /// Returns the adopted state if it changed, or nil if nothing changed.
+    /// Re-read the file store. The NSE may have updated it while the main app
+    /// was suspended. Returns the new state if it differs, nil otherwise.
     @discardableResult
-    func reloadFromCache() -> TapState? {
-        guard let defaults = UserDefaults(suiteName: appGroup),
-              let raw = defaults.string(forKey: stateKey),
-              let state = TapState(rawValue: raw),
-              state != currentState else { return nil }
-        print("CACHE_ADOPT \(state.rawValue)")
-        currentState = state
-        return state
+    func reloadFromFile() -> TapState? {
+        guard let entry = SharedState.load(), entry.state != currentState else { return nil }
+        print("FILE_ADOPT \(entry.state.rawValue)")
+        currentState = entry.state
+        return entry.state
     }
 
-    /// Call on every app resume. Determines the best available "target" state
-    /// from the cache and delivered notifications. If that target differs from
-    /// what the UI currently shows, raises `isSyncing` for a short minimum
-    /// duration before committing the new state — giving the loading spinner
-    /// time to render.
+    /// Called on every app resume. Reads the shared file first (fast, always
+    /// fresh), then checks delivered notifications as a belt-and-suspenders
+    /// fallback. Raises `isSyncing` for long enough for the spinner to be
+    /// perceivable when the state is actually changing.
     func syncFromDeliveredNotifications() async {
-        let notifications = await UNUserNotificationCenter.current().deliveredNotifications()
-        let cachedTime = UserDefaults(suiteName: appGroup)?.double(forKey: stateTimeKey) ?? 0
-        let cachedState: TapState? = UserDefaults(suiteName: appGroup)?
-            .string(forKey: stateKey)
-            .flatMap(TapState.init(rawValue:))
+        let fileEntry = SharedState.load()
 
+        let notifications = await UNUserNotificationCenter.current().deliveredNotifications()
         let latestNotif = notifications.compactMap { note -> (Date, TapState)? in
             guard let raw = note.request.content.userInfo["status"] as? String,
                   let state = TapState(rawValue: raw) else { return nil }
             return (note.date, state)
         }.max(by: { $0.0 < $1.0 })
 
-        // Pick the freshest signal: newest delivered notification if it beats
-        // the cached timestamp, otherwise whatever is cached.
-        let targetState: TapState
-        let targetDate: Date?
-        if let (date, state) = latestNotif, date.timeIntervalSince1970 > cachedTime {
-            targetState = state
-            targetDate = date
-        } else if let cached = cachedState {
-            targetState = cached
-            targetDate = nil
+        // Prefer the newer of (file entry, latest delivered notification).
+        // Fall back to whichever we have.
+        let target: (state: TapState, date: Date)?
+        if let fileEntry, let latestNotif {
+            if latestNotif.0.timeIntervalSince1970 > fileEntry.date.timeIntervalSince1970 {
+                target = (latestNotif.1, latestNotif.0)
+            } else {
+                target = (fileEntry.state, fileEntry.date)
+            }
+        } else if let fileEntry {
+            target = (fileEntry.state, fileEntry.date)
+        } else if let latestNotif {
+            target = (latestNotif.1, latestNotif.0)
         } else {
-            targetState = currentState
-            targetDate = nil
+            target = nil
         }
 
-        print("SYNC target=\(targetState.rawValue) current=\(currentState.rawValue)")
+        print("SYNC target=\(target?.state.rawValue ?? "<nil>") current=\(currentState.rawValue)")
 
-        guard targetState != currentState else { return }
+        guard let target, target.state != currentState else { return }
 
         isSyncing = true
-        // Let SwiftUI paint the spinner, then commit the state change.
         try? await Task.sleep(for: preCommitDelay)
-        if let targetDate {
-            persist(targetState, at: targetDate)
-        } else {
-            currentState = targetState
-            WidgetCenter.shared.reloadAllTimelines()
-        }
-        // Canvas is re-rendering the new character underneath the spinner
-        // during this window; by the time the spinner fades, the new sprite
-        // is on screen.
+        persist(target.state, at: target.date)
         try? await Task.sleep(for: postCommitDelay)
         isSyncing = false
     }
 
     /// Apply a state received in-flight (foreground delegate or background handler).
     func updateState(_ state: TapState) {
-        // If a push arrived while the app is already open, we never needed a
-        // spinner in the first place; clear it if one was up.
         if isSyncing { isSyncing = false }
         persist(state, at: Date())
     }
 
     private func persist(_ state: TapState, at date: Date) {
         print("PERSIST \(state.rawValue)@\(date.timeIntervalSince1970)")
-        if let defaults = UserDefaults(suiteName: appGroup) {
-            defaults.set(state.rawValue, forKey: stateKey)
-            defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
-        }
+        SharedState.save(state, at: date)
         currentState = state
         WidgetCenter.shared.reloadAllTimelines()
     }

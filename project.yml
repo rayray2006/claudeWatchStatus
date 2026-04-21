@@ -87,6 +87,8 @@ targets:
       - path: ClaudeTapNotificationService/Resources
         buildPhase: resources
       - path: Shared/Constants.swift
+      - path: Shared/TapState.swift
+      - path: Shared/SharedState.swift
     info:
       path: ClaudeTapNotificationService/Info.plist
       properties:
