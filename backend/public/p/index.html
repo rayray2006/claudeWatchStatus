@@ -425,12 +425,12 @@
         <section id="stage-done" class="stage hidden">
             <div class="success">
                 <div class="check">✓</div>
-                <div class="success-text"><strong>You're cued.</strong> Two ways to wrap up.</div>
+                <div class="success-text"><strong>Set up.</strong></div>
             </div>
 
             <div class="tabs" role="tablist">
                 <button id="tab-agent"  class="active" role="tab">Agent</button>
-                <button id="tab-manual"             role="tab">Manual</button>
+                <button id="tab-manual"             role="tab">Claude Code</button>
             </div>
 
             <div id="pane-agent">
@@ -439,8 +439,8 @@
                     <pre class="snippet"><code id="agent-prompt" class="agent"></code></pre>
                     <button class="copy-btn" data-copy="agent-prompt">Copy</button>
                 </div>
-                <div class="step"><span class="bubble">2</span>Paste into Claude Code</div>
-                <p class="note">Run <span class="kbd">claude</span> in your terminal and paste. It edits <span class="kbd">~/.claude/settings.json</span> for you.</p>
+                <div class="step"><span class="bubble">2</span>Paste into your agent</div>
+                <p class="note">Works in any coding agent that supports lifecycle hooks — Claude Code, Codex, Gemini CLI, aider. The agent figures out where its config lives.</p>
             </div>
 
             <div id="pane-manual" style="display: none;">
@@ -452,13 +452,6 @@
                 <div class="step"><span class="bubble">2</span>Paste into your config</div>
                 <p class="note">Open <span class="kbd">~/.claude/settings.json</span> and merge into the <span class="kbd">hooks</span> block.</p>
             </div>
-
-            <div class="step"><span class="bubble">3</span>Give it a wave</div>
-            <div class="test-row">
-                <button class="ghost" data-status="working">Send working</button>
-                <button class="ghost" data-status="done">Send done</button>
-            </div>
-            <p id="test-status" class="test-status"></p>
         </section>
     </main>
 
@@ -480,7 +473,6 @@
         const $tabManual = $('tab-manual')
         const $paneAgent = $('pane-agent')
         const $paneManual = $('pane-manual')
-        const $testStatus = $('test-status')
 
         let apiKey = null
 
@@ -511,28 +503,24 @@
         }
 
         function agentPrompt(key, url) {
-            return `Set up Cued wrist notifications for Claude Code on this machine.
+            return `Set up Cued wrist notifications on this machine.
 
-Edit ~/.claude/settings.json (create it if it doesn't exist). Merge these three hooks into the existing "hooks" object, preserving any other hooks already there. If one of these hook names already exists, append the new command instead of replacing it.
+Wire three lifecycle hooks (or whatever you call them — hooks, callbacks, MCP triggers) into your config so each of these curl commands fires at the right moment:
 
-{
-  "hooks": {
-    "PreToolUse": [{
-      "type": "command",
-      "command": "curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"working\\"}' ${url} >/dev/null 2>&1 &"
-    }],
-    "Stop": [{
-      "type": "command",
-      "command": "curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"done\\"}' ${url} >/dev/null 2>&1 &"
-    }],
-    "Notification": [{
-      "type": "command",
-      "command": "curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"approval\\"}' ${url} >/dev/null 2>&1 &"
-    }]
-  }
-}
+  WORKING — when you start running a tool / shell command:
+    curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"working"}' ${url} >/dev/null 2>&1 &
 
-Confirm the file is valid JSON, then tell me "done".`
+  DONE — when you finish a turn / become idle:
+    curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"done"}' ${url} >/dev/null 2>&1 &
+
+  APPROVAL — when you're waiting on the user (permission prompt, plan review, anything blocking):
+    curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"approval"}' ${url} >/dev/null 2>&1 &
+
+Examples:
+  - Claude Code → ~/.claude/settings.json, "hooks" object: PreToolUse, Stop, Notification
+  - Codex / Gemini CLI / aider / others → find the equivalent lifecycle event system in their docs
+
+Edit the right config file for whichever agent you are, merging into existing hooks rather than replacing them. Confirm what you did and where the config lives.`
         }
 
         async function pair() {
@@ -594,38 +582,6 @@ Confirm the file is valid JSON, then tell me "done".`
                     btn.textContent = 'Copy'
                     btn.classList.remove('copied')
                 }, 1700)
-            })
-        })
-
-        document.querySelectorAll('button[data-status]').forEach((btn) => {
-            btn.addEventListener('click', async () => {
-                if (!apiKey) return
-                btn.disabled = true
-                $testStatus.textContent = `Sending ${btn.dataset.status}…`
-                $testStatus.className = 'test-status'
-                try {
-                    const res = await fetch(`${API}/push`, {
-                        method: 'POST',
-                        headers: {
-                            'content-type': 'application/json',
-                            authorization: `Bearer ${apiKey}`,
-                        },
-                        body: JSON.stringify({ status: btn.dataset.status }),
-                    })
-                    const data = await res.json()
-                    if (data.delivered > 0) {
-                        $testStatus.textContent = `Sent. Check your wrist.`
-                        $testStatus.className = 'test-status ok'
-                    } else {
-                        $testStatus.textContent = `No delivery. ${data.error || ''}`
-                        $testStatus.className = 'test-status err'
-                    }
-                } catch (err) {
-                    $testStatus.textContent = `Failed: ${err.message}`
-                    $testStatus.className = 'test-status err'
-                } finally {
-                    btn.disabled = false
-                }
             })
         })
 
