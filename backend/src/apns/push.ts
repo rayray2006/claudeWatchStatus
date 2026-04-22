@@ -84,7 +84,7 @@ export async function sendPush(
             authorization: `bearer ${jwt}`,
             'apns-topic': target.bundleId,
             'apns-push-type': 'alert',
-            'apns-priority': loud ? '10' : '5',
+            'apns-priority': '10',
             'apns-collapse-id': 'nudge-state',
             'apns-id': randomUUID(),
             'content-type': 'application/json',
