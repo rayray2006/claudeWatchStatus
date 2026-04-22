@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import WidgetKit
 
 /// Watch-side SwiftUI state holder for the current Claude Code status.
 ///
@@ -152,10 +153,17 @@ final class StateStore: ObservableObject {
             if stateChanged {
                 defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
             }
+            // Force-flush so the widget process reads fresh values on the
+            // next getTimeline.
+            defaults.synchronize()
         }
         currentState = state
         if stateChanged {
             currentStateStartedAt = date
+            // Belt-and-suspenders reload: NSE already fired one when the
+            // push arrived, but firing here too increases the chance that
+            // at least one reaches the system before throttling.
+            WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.smartStack)
         }
         scheduleStaleRevert()
     }
