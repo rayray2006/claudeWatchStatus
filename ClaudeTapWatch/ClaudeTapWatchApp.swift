@@ -63,11 +63,6 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
         print("DID_RECEIVE_REMOTE status=\(raw ?? "<none>")")
         if let raw, let state = TapState(rawValue: raw) {
             StateStore.shared.updateState(state)
-            // Schedule background refresh as a backup trigger for the widget.
-            WKExtension.shared().scheduleBackgroundRefresh(
-                withPreferredDate: Date().addingTimeInterval(2),
-                userInfo: nil
-            ) { _ in }
             // Play the user's chosen haptic for this state (if any).
             Task { await HapticPrefs.shared.choice(for: state).play() }
         }
@@ -75,12 +70,10 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     }
 
     func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
-        // Backup reload after a push: NSE already triggered a reload when the
-        // state changed, but firing a second one ~2s later catches the rare
-        // case where the first was dropped. The system coalesces back-to-back
-        // reload requests so this is cheap.
+        // We no longer schedule background refreshes for push reloads (the
+        // NSE handles that). Any backgroundTasks we receive here are system-
+        // initiated; just mark them done.
         for task in backgroundTasks {
-            WidgetCenter.shared.reloadAllTimelines()
             task.setTaskCompletedWithSnapshot(false)
         }
     }

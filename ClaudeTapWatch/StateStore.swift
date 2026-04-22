@@ -121,7 +121,7 @@ final class StateStore: ObservableObject {
             persist(targetState, at: targetDate)
         } else {
             currentState = targetState
-            WidgetCenter.shared.reloadAllTimelines()
+            WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.circular)
         }
         try? await Task.sleep(for: postCommitDelay)
         isSyncing = false
@@ -141,10 +141,12 @@ final class StateStore: ObservableObject {
         if let defaults = UserDefaults(suiteName: appGroup) {
             defaults.set(state.rawValue, forKey: stateKey)
             defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
+            // Flush so the widget process sees this before we reload.
+            defaults.synchronize()
         }
         currentState = state
         if stateChanged {
-            WidgetCenter.shared.reloadAllTimelines()
+            WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.circular)
         }
         scheduleStaleRevert()
     }

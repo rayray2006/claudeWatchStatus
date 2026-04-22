@@ -34,8 +34,12 @@ final class NotificationService: UNNotificationServiceExtension {
             let cached = defaults.string(forKey: ClaudeTapConstants.Defaults.stateKey)
             defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
             defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
+            // Force-flush so the widget process sees the new value before we
+            // ask the system to re-render. Cross-process UserDefaults isn't
+            // guaranteed to sync in time otherwise.
+            defaults.synchronize()
             if cached != raw {
-                WidgetCenter.shared.reloadAllTimelines()
+                WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.circular)
                 print("NSE_RELOAD \(raw) (was \(cached ?? "nil"))")
             } else {
                 print("NSE_SKIP \(raw) (unchanged)")
