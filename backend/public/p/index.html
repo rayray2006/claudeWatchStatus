@@ -312,9 +312,9 @@
 
         .tabs-wrap.hidden { display: none; }
 
-        /* Quiet-mode tip — shown after pairing */
+        /* Recommended tip — lives under the pair form */
         .quiet-tip {
-            margin-top: 20px;
+            margin-top: 24px;
             padding: 14px 16px;
             background: var(--surface);
             border: 1px solid var(--border);
@@ -325,12 +325,28 @@
         }
         .quiet-tip.hidden { display: none; }
         .quiet-tip-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
             font-weight: 600;
             color: var(--ink);
             font-size: 13px;
             letter-spacing: 0.04em;
             text-transform: uppercase;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
+        }
+        .quiet-tip-badge {
+            background: var(--claude-soft);
+            color: var(--claude-2);
+            border: 1px solid rgba(204, 120, 92, 0.28);
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            line-height: 1.3;
         }
         .quiet-tip-body { margin: 0; }
 
@@ -543,6 +559,16 @@
                 <div id="paired-note" class="paired-note hidden">
                     <span class="dot"></span>Paired. Grab your setup snippet.
                 </div>
+
+                <aside id="quiet-tip" class="quiet-tip">
+                    <div class="quiet-tip-title">
+                        <span class="quiet-tip-badge">Recommended</span>
+                        Hidden notifications
+                    </div>
+                    <p class="quiet-tip-body">
+                        For a wrist tap with no banner: on your iPhone, open <span class="kbd">Watch app</span> → <span class="kbd">Notifications</span> → <span class="kbd">Cued</span> → <span class="kbd">Notification Center</span>. The haptic still fires; the banner is suppressed.
+                    </p>
+                </aside>
             </section>
 
             <section class="setup-pane">
@@ -625,12 +651,6 @@
                     </div>
                 </div>
 
-                <aside id="quiet-tip" class="quiet-tip hidden">
-                    <div class="quiet-tip-title">Hidden notifications</div>
-                    <p class="quiet-tip-body">
-                        For a wrist tap with no banner: on your iPhone, open <span class="kbd">Watch app</span> → <span class="kbd">Notifications</span> → <span class="kbd">Cued</span> → <span class="kbd">Notification Center</span>. The haptic still fires; the banner is suppressed.
-                    </p>
-                </aside>
             </section>
         </div>
     </main>
@@ -651,7 +671,6 @@
         const $pairedNote = $('paired-note')
         const $locked = $('locked-card')
         const $tabsWrap = $('tabs-wrap')
-        const $quietTip = $('quiet-tip')
         const $tabAgent = $('tab-agent')
         const $tabClaude = $('tab-claude')
         const $tabCodex = $('tab-codex')
@@ -838,7 +857,6 @@ Edit the right file, save, and tell me the path you wrote to.`
             $pairedNote.classList.remove('hidden')
             $locked.classList.add('hidden')
             $tabsWrap.classList.remove('hidden')
-            $quietTip.classList.remove('hidden')
         }
 
         function resetForm() {
@@ -852,7 +870,6 @@ Edit the right file, save, and tell me the path you wrote to.`
             $pairedNote.classList.add('hidden')
             $locked.classList.remove('hidden')
             $tabsWrap.classList.add('hidden')
-            $quietTip.classList.add('hidden')
             $code.focus()
         }
 
