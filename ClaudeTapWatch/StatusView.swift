@@ -4,6 +4,7 @@ import WidgetKit
 struct StatusView: View {
     @StateObject private var store = StateStore.shared
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showSettings = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -31,6 +32,24 @@ struct StatusView: View {
         .animation(.easeInOut(duration: 0.18), value: store.isSyncing)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
+        .overlay(alignment: .topLeading) {
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.4))
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .offset(x: -2, y: -16)
+        }
+        .confirmationDialog("Settings", isPresented: $showSettings, titleVisibility: .visible) {
+            Button("Reset pairing", role: .destructive) {
+                Pairing.shared.reset()
+            }
+        }
         .task { await store.syncFromDeliveredNotifications() }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {

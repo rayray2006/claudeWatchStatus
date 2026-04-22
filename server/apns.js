@@ -58,7 +58,7 @@ export function sendPush({ token, status }) {
     const loud = status === 'approval' || status === 'done'
 
     const aps = {
-        alert: { title: 'Claude', body },
+        alert: { body },
         'content-available': 1,
         'mutable-content': 1,
         // Set the interruption level directly in APNs for silent states so

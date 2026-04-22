@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#0e0b07">
-    <meta name="description" content="A wrist nudge when your coding agent finishes a task or needs your input.">
-    <title>Cued · Wrist nudges for your coding agent</title>
+    <meta name="description" content="A wrist tap when your coding agent finishes a task or needs your input.">
+    <title>Cued · Wrist taps for your coding agent</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -46,10 +46,7 @@
         body {
             min-height: 100dvh;
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-            background:
-                radial-gradient(900px 460px at 12% -8%, rgba(204, 120, 92, 0.10), transparent 60%),
-                radial-gradient(700px 360px at 90% 110%, rgba(204, 120, 92, 0.04), transparent 60%),
-                var(--bg);
+            background: var(--bg);
         }
 
         /* Top nav */
@@ -90,43 +87,23 @@
             font-size: 17px;
             letter-spacing: -0.02em;
         }
-        nav.top .links {
-            display: flex;
-            gap: 22px;
-            align-items: center;
-        }
-        nav.top a {
-            color: var(--ink-muted);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 14px;
-            transition: color 160ms;
-        }
-        nav.top a:hover { color: var(--ink); }
-        nav.top a.cta {
-            background: var(--ink);
-            color: var(--bg);
-            padding: 9px 16px;
-            border-radius: 9px;
-            font-weight: 600;
-        }
-        nav.top a.cta:hover { color: var(--bg); opacity: 0.9; }
-
         /* Hero */
         .hero {
             max-width: 1100px;
             margin: 0 auto;
-            padding: 72px 28px 64px;
+            padding: 56px 28px 96px;
             display: grid;
             grid-template-columns: 1.05fr 0.95fr;
             gap: 56px;
             align-items: center;
+            min-height: calc(100dvh - 200px);
         }
         @media (max-width: 860px) {
             .hero {
                 grid-template-columns: 1fr;
-                padding: 48px 22px 40px;
+                padding: 32px 22px 56px;
                 gap: 40px;
+                min-height: 0;
             }
         }
         .hero h1 {
@@ -172,13 +149,6 @@
             box-shadow: 0 8px 18px -8px rgba(204, 120, 92, 0.45);
         }
         a.btn-primary:hover { filter: brightness(1.06); }
-        a.btn-ghost {
-            background: var(--surface);
-            color: var(--ink);
-            border: 1px solid var(--border);
-        }
-        a.btn-ghost:hover { background: var(--surface-2); border-color: var(--border-2); }
-
         /* Hero showcase (right side): the four characters in a watch frame */
         .showcase {
             display: grid;
@@ -216,192 +186,49 @@
             border-radius: 36px;
             overflow: hidden;
             position: relative;
-            display: grid;
-            place-items: center;
-        }
-        .watch-screen img {
-            width: 80%;
-            height: 80%;
-            object-fit: contain;
-            position: absolute;
-            inset: 10% 10%;
-            opacity: 0;
-            transition: opacity 600ms ease-in-out;
-        }
-        .watch-screen img.on { opacity: 1; }
-
-        /* Sections */
-        section {
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 72px 28px;
-        }
-        @media (max-width: 720px) {
-            section { padding: 56px 22px; }
-        }
-        h2 {
-            font-size: clamp(28px, 3.6vw, 40px);
-            font-weight: 700;
-            letter-spacing: -0.025em;
-            line-height: 1.05;
-            margin: 0 0 14px;
-        }
-        h2 + p.section-lede {
-            font-size: 17px;
-            color: var(--ink-dim);
-            margin: 0 0 40px;
-            max-width: 56ch;
-            line-height: 1.5;
-        }
-
-        /* States grid */
-        .states {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-        }
-        @media (max-width: 720px) {
-            .states {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 12px;
-            }
-        }
-        .state-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
             display: flex;
             flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-            transition: border-color 200ms, transform 200ms;
+            padding: 12% 8% 10%;
+            gap: 10px;
         }
-        .state-card:hover {
-            border-color: var(--border-2);
-            transform: translateY(-2px);
+        .watch-art {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            place-items: center;
         }
-        .state-art {
+        .watch-art img {
             width: 100%;
-            aspect-ratio: 1;
-            background: #000;
-            border-radius: 12px;
-            display: grid;
-            place-items: center;
-            overflow: hidden;
-        }
-        .state-art img {
-            width: 90%;
-            height: 90%;
+            height: 100%;
             object-fit: contain;
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 550ms ease-in-out;
         }
-        .state-name {
-            font-weight: 600;
-            font-size: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .watch-art img.on { opacity: 1; }
+        .watch-labels {
+            position: relative;
+            height: 22px;
+            flex: 0 0 auto;
         }
-        .state-name .dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-        }
-        .dot-w { background: var(--ink-faint); }
-        .dot-d { background: var(--ok); }
-        .dot-a { background: var(--claude); }
-        .dot-i { background: var(--ink-faint); }
-        .state-desc {
-            font-size: 13.5px;
-            color: var(--ink-muted);
-            line-height: 1.5;
-        }
-
-        /* Steps */
-        .steps {
+        .watch-labels .lbl {
+            position: absolute;
+            inset: 0;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-        }
-        @media (max-width: 760px) {
-            .steps { grid-template-columns: 1fr; gap: 14px; }
-        }
-        .step-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
-        }
-        .step-card .num {
-            display: inline-grid;
             place-items: center;
-            width: 28px;
-            height: 28px;
-            background: var(--claude-soft);
-            color: var(--claude-2);
-            border-radius: 50%;
-            font-family: var(--mono);
-            font-size: 13px;
             font-weight: 700;
-            margin-bottom: 14px;
-        }
-        .step-card h3 {
-            font-size: 17px;
-            font-weight: 600;
+            font-size: 14px;
             letter-spacing: -0.01em;
-            margin: 0 0 8px;
+            opacity: 0;
+            transition: opacity 550ms ease-in-out;
         }
-        .step-card p {
-            font-size: 14.5px;
-            color: var(--ink-muted);
-            margin: 0;
-            line-height: 1.55;
-        }
-        .step-card .kbd {
-            font-family: var(--mono);
-            font-size: 12.5px;
-            background: var(--bg-tint);
-            padding: 2px 6px;
-            border-radius: 5px;
-            border: 1px solid var(--border);
-            color: var(--ink-dim);
-        }
-
-        /* Compatibility */
-        .compat {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
-        }
-        @media (max-width: 720px) {
-            .compat { grid-template-columns: repeat(2, 1fr); }
-        }
-        .compat-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 18px 20px;
-        }
-        .compat-card .name {
-            font-weight: 600;
-            font-size: 15px;
-            margin: 0 0 4px;
-        }
-        .compat-card .meta {
-            font-size: 12.5px;
-            color: var(--ink-muted);
-            font-family: var(--mono);
-        }
-
-        /* CTA section */
-        .cta-final {
-            text-align: center;
-            padding-top: 64px;
-            padding-bottom: 96px;
-        }
-        .cta-final h2 {
-            margin-bottom: 28px;
-        }
+        .watch-labels .lbl.on { opacity: 1; }
+        .watch-labels .state-idle     { color: #8f8575; }
+        .watch-labels .state-working  { color: #ff9f52; }
+        .watch-labels .state-approval { color: #5ba4ff; }
+        .watch-labels .state-done     { color: #8ae66e; }
 
         footer {
             border-top: 1px solid var(--border);
@@ -427,124 +254,51 @@
             <div class="mascot" aria-hidden="true"></div>
             <span class="name">Cued</span>
         </a>
-        <div class="links">
-            <a href="#how">How it works</a>
-            <a href="#states">States</a>
-            <a class="cta" href="/p">Pair</a>
-        </div>
     </nav>
 
     <header class="hero">
         <div>
-            <h1>A nudge on your wrist when <span class="accent">Claude is ready</span>.</h1>
-            <p class="lede">Cued listens for lifecycle hooks from your coding agent and taps your Apple Watch the moment it finishes a task or asks for input. Stop refreshing your terminal.</p>
+            <h1>A tap on your wrist when <span class="accent">your agent is ready</span>.</h1>
+            <p class="lede">Cued listens for lifecycle hooks from your coding agent and taps your Apple Watch the moment it finishes a task or asks for input.</p>
             <div class="actions">
                 <a class="btn btn-primary" href="/p">Pair your watch →</a>
-                <a class="btn btn-ghost" href="#how">How it works</a>
             </div>
         </div>
         <div class="showcase" aria-hidden="true">
             <div class="watch">
                 <div class="watch-screen">
-                    <img src="/img/idle.png"     alt="" data-i="0" class="on">
-                    <img src="/img/working.png"  alt="" data-i="1">
-                    <img src="/img/approval.png" alt="" data-i="2">
-                    <img src="/img/done.png"     alt="" data-i="3">
+                    <div class="watch-art">
+                        <img src="/img/idle.png"     alt="" class="on">
+                        <img src="/img/working.png"  alt="">
+                        <img src="/img/approval.png" alt="">
+                        <img src="/img/done.png"     alt="">
+                    </div>
+                    <div class="watch-labels">
+                        <span class="lbl state-idle on">Idle</span>
+                        <span class="lbl state-working">Working…</span>
+                        <span class="lbl state-approval">Needs you</span>
+                        <span class="lbl state-done">Done</span>
+                    </div>
                 </div>
             </div>
         </div>
     </header>
-
-    <section id="states">
-        <h2>Four states. Different taps.</h2>
-        <p class="section-lede">Each state corresponds to a moment in your agent's life. The two that matter most — when it finishes and when it needs you — buzz your wrist.</p>
-        <div class="states">
-            <div class="state-card">
-                <div class="state-art"><img src="/img/idle.png" alt="Idle"></div>
-                <div class="state-name"><span class="dot dot-i"></span>Idle</div>
-                <p class="state-desc">No agent activity. Watch face stays calm.</p>
-            </div>
-            <div class="state-card">
-                <div class="state-art"><img src="/img/working.png" alt="Working"></div>
-                <div class="state-name"><span class="dot dot-w"></span>Working</div>
-                <p class="state-desc">Agent is busy. Silent update — no buzz.</p>
-            </div>
-            <div class="state-card">
-                <div class="state-art"><img src="/img/done.png" alt="Done"></div>
-                <div class="state-name"><span class="dot dot-d"></span>Done</div>
-                <p class="state-desc">Turn finished. Wrist tap so you can come back.</p>
-            </div>
-            <div class="state-card">
-                <div class="state-art"><img src="/img/approval.png" alt="Approval"></div>
-                <div class="state-name"><span class="dot dot-a"></span>Approval</div>
-                <p class="state-desc">Agent is waiting on you. Wrist tap to act.</p>
-            </div>
-        </div>
-    </section>
-
-    <section id="how">
-        <h2>Three steps to set up.</h2>
-        <p class="section-lede">No App Store install for the watch app yet — sideload from Xcode for now. Pairing and setup take under a minute.</p>
-        <div class="steps">
-            <div class="step-card">
-                <div class="num">1</div>
-                <h3>Open the watch app</h3>
-                <p>It generates a 6-character code on first launch.</p>
-            </div>
-            <div class="step-card">
-                <div class="num">2</div>
-                <h3>Visit <span class="kbd">getcued.vercel.app/p</span></h3>
-                <p>Type the code, hit Register. Your watch is linked to a fresh API key.</p>
-            </div>
-            <div class="step-card">
-                <div class="num">3</div>
-                <h3>Wire your agent</h3>
-                <p>Drop the snippet into your agent's config — or paste the prompt and let your agent do it.</p>
-            </div>
-        </div>
-    </section>
-
-    <section id="agents">
-        <h2>Works with your agent.</h2>
-        <p class="section-lede">Cued speaks the lifecycle-hook language each major coding agent already supports.</p>
-        <div class="compat">
-            <div class="compat-card">
-                <div class="name">Claude Code</div>
-                <div class="meta">~/.claude/settings.json</div>
-            </div>
-            <div class="compat-card">
-                <div class="name">Codex CLI</div>
-                <div class="meta">~/.codex/config.toml</div>
-            </div>
-            <div class="compat-card">
-                <div class="name">Gemini CLI</div>
-                <div class="meta">~/.gemini/settings.json</div>
-            </div>
-            <div class="compat-card">
-                <div class="name">Anything else</div>
-                <div class="meta">curl + 3 hooks</div>
-            </div>
-        </div>
-    </section>
-
-    <section class="cta-final">
-        <h2>Ready when you are.</h2>
-        <a class="btn btn-primary" href="/p">Pair your watch →</a>
-    </section>
 
     <footer>
         <a href="https://ko-fi.com/rayray2006" target="_blank" rel="noopener">Buy me a coffee</a>
     </footer>
 
     <script>
-        // Cycle through the four watch faces in the hero.
-        const imgs = document.querySelectorAll('.watch-screen img')
+        const imgs = Array.from(document.querySelectorAll('.watch-art img'))
+        const lbls = Array.from(document.querySelectorAll('.watch-labels .lbl'))
         let i = 0
         setInterval(() => {
             imgs[i].classList.remove('on')
+            lbls[i].classList.remove('on')
             i = (i + 1) % imgs.length
             imgs[i].classList.add('on')
-        }, 2400)
+            lbls[i].classList.add('on')
+        }, 5200)
     </script>
 </body>
 </html>

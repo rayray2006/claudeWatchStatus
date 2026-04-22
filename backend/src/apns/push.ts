@@ -32,7 +32,7 @@ function buildPayload(status: Status) {
         status === 'working'  ? 'Working' : 'Idle'
 
     const aps: Record<string, unknown> = {
-        alert: { title: 'Claude', body },
+        alert: { body },
         'content-available': 1,
         'mutable-content': 1,
         'interruption-level': loud ? 'active' : 'passive',
