@@ -8,6 +8,10 @@ enum ClaudeTapConstants {
         static let stateTimeKey = "claude_state_time"
     }
 
+    enum ComplicationKind {
+        static let circular = "ClaudeTapCircular"
+    }
+
     static var sharedDefaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
     }
