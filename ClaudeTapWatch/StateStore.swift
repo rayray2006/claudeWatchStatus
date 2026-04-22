@@ -18,6 +18,11 @@ final class StateStore: ObservableObject {
 
     @Published private(set) var currentState: TapState
 
+    /// Wall-clock time the CURRENT state was entered. Only advances on a real
+    /// state transition — repeat pushes of the same state do not reset it.
+    /// Used to drive the working/thinking duration label.
+    @Published private(set) var currentStateStartedAt: Date
+
     /// True while a sync is in flight AND that sync will change `currentState`.
     @Published private(set) var isSyncing: Bool = false
 
@@ -54,6 +59,7 @@ final class StateStore: ObservableObject {
         }
 
         self.currentState = state
+        self.currentStateStartedAt = time > 0 ? Date(timeIntervalSince1970: time) : Date()
         print("STORE_INIT cached=\(raw ?? "<nil>") state=\(state.rawValue)")
         scheduleStaleRevert()
     }
@@ -137,11 +143,20 @@ final class StateStore: ObservableObject {
 
     private func persist(_ state: TapState, at date: Date) {
         print("PERSIST \(state.rawValue)@\(date.timeIntervalSince1970)")
+        let stateChanged = state != currentState
         if let defaults = UserDefaults(suiteName: appGroup) {
             defaults.set(state.rawValue, forKey: stateKey)
-            defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
+            // Only advance the stored timestamp when the state actually
+            // transitions — repeat pushes (e.g. every PreToolUse) must not
+            // reset the "how long has working been going" timer.
+            if stateChanged {
+                defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
+            }
         }
         currentState = state
+        if stateChanged {
+            currentStateStartedAt = date
+        }
         scheduleStaleRevert()
     }
 

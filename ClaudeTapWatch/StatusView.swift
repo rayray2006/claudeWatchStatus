@@ -30,6 +30,17 @@ struct StatusView: View {
                 .font(.system(.headline, weight: .bold))
                 .foregroundColor(statusColor)
                 .opacity(store.isSyncing ? 0 : 1)
+
+            if store.currentState.isActive && !store.isSyncing {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let elapsed = max(0, context.date.timeIntervalSince(store.currentStateStartedAt))
+                    Text(Self.formatElapsed(elapsed))
+                        .font(.system(.caption2, design: .monospaced).weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                .transition(.opacity)
+            }
         }
         .animation(.easeInOut(duration: 0.18), value: store.isSyncing)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -58,5 +69,15 @@ struct StatusView: View {
         case .done: return .green
         case .needsApproval: return .blue
         }
+    }
+
+    /// "0:23" up to an hour, then "1:05:23".
+    private static func formatElapsed(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds)
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
+        return String(format: "%d:%02d", m, s)
     }
 }

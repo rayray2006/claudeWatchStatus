@@ -25,11 +25,17 @@ final class NotificationService: UNNotificationServiceExtension {
         let raw = request.content.userInfo["status"] as? String
         print("NSE_FIRED status=\(raw ?? "<none>")")
 
-        // 1. Cache update (always).
+        // 1. Cache update. Only advance the timestamp when the state
+        // actually transitions — duplicate pushes of the same state
+        // (e.g. PreToolUse firing repeatedly) must NOT reset the
+        // duration timer the app shows.
         if let raw, let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID) {
+            let cached = defaults.string(forKey: ClaudeTapConstants.Defaults.stateKey)
             defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
-            defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
-            print("NSE_WROTE \(raw)")
+            if cached != raw {
+                defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
+            }
+            print("NSE_WROTE \(raw) (wasCached=\(cached ?? "nil"))")
         }
 
         // 2. Shape the notification for display.
