@@ -21,10 +21,10 @@ final class StateStore: ObservableObject {
     /// True while a sync is in flight AND that sync will change `currentState`.
     @Published private(set) var isSyncing: Bool = false
 
-    private let preCommitDelay: Duration = .milliseconds(200)
-    /// Canvas-based sprite render runs ~50–100K fill operations on watch
-    /// hardware. 1500ms covers the worst-case paint before the spinner fades.
-    private let postCommitDelay: Duration = .milliseconds(1500)
+    /// One frame yield so SwiftUI has a chance to paint the spinner BEFORE
+    /// we swap state. With CGImage-backed sprites, the actual state swap is
+    /// an instant GPU blit — no post-commit delay needed.
+    private let spinnerRenderYield: Duration = .milliseconds(16)
 
     /// Only `done` auto-expires: it's a transient completion state and we
     /// don't want "Done" sitting on the watch face forever. `needsApproval`
@@ -115,13 +115,15 @@ final class StateStore: ObservableObject {
         guard targetState != currentState else { return }
 
         isSyncing = true
-        try? await Task.sleep(for: preCommitDelay)
+        // Give SwiftUI a frame to paint the spinner, then swap state. The
+        // new sprite is a pre-decoded CGImage — rendering is an instant GPU
+        // blit, so we can drop isSyncing on the very next line.
+        try? await Task.sleep(for: spinnerRenderYield)
         if let targetDate {
             persist(targetState, at: targetDate)
         } else {
             currentState = targetState
         }
-        try? await Task.sleep(for: postCommitDelay)
         isSyncing = false
     }
 
