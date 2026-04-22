@@ -30,6 +30,10 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
         }
         // Recover state from any notifications delivered while the app was suspended.
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
+        // Bootstrap the warm-keepalive chain on first launch even if no push
+        // has arrived yet, so the user gets a window of reliable haptic
+        // delivery just from opening the app.
+        Self.scheduleWarmKeepAlive()
     }
 
     /// Fires before `scenePhase` propagates to SwiftUI — gives us the earliest
@@ -37,11 +41,21 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     func applicationWillEnterForeground() {
         print("WILL_ENTER_FOREGROUND")
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
+        Self.scheduleWarmKeepAlive()
     }
 
     func applicationDidBecomeActive() {
         print("DID_BECOME_ACTIVE")
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
+        Self.scheduleWarmKeepAlive()
+    }
+
+    /// Fires when the user navigates away from our app. Schedule a heartbeat
+    /// so the just-closed app stays in the warm window long enough to
+    /// receive subsequent pushes via didReceiveRemoteNotification.
+    func applicationDidEnterBackground() {
+        print("DID_ENTER_BACKGROUND")
+        Self.scheduleWarmKeepAlive()
     }
 
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
