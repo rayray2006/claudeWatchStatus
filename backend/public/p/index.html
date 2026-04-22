@@ -3,28 +3,37 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#0a0a0a">
+    <meta name="theme-color" content="#0e0b07">
     <meta name="description" content="Pair your Apple Watch with Claude Code.">
     <title>Cued · Pair</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             color-scheme: dark;
-            --bg:          #0a0a0a;
-            --surface:     #111111;
-            --surface-2:   #181818;
-            --border:      #222222;
-            --border-2:    #2e2e2e;
-            --ink:         #fafafa;
-            --ink-dim:     #d4d4d4;
-            --ink-muted:   #8b8b8b;
-            --ink-faint:   #595959;
-            --accent:      #f97316;
-            --accent-dim:  #c2410c;
-            --ok:          #4ade80;
-            --err:         #f87171;
+            /* warm near-black base */
+            --bg:         #0e0b07;
+            --bg-tint:    #13100b;
+            --surface:    #1a1510;
+            --surface-2:  #221c15;
+            --border:     #2b251c;
+            --border-2:   #3c3528;
+            /* ink — cream on black */
+            --ink:        #fbf6ee;
+            --ink-dim:    #d9d1c2;
+            --ink-muted:  #9a8f7c;
+            --ink-faint:  #5e5446;
+            /* accents */
+            --amber:      #ffa558;
+            --amber-2:    #ff8a33;
+            --amber-soft: rgba(255, 165, 88, 0.12);
+            --lime:       #c5e86a;
+            --pink:       #ff8aa6;
+            /* status */
+            --ok:         #92dd6a;
+            --err:        #ff8a7a;
+            /* fonts */
             --sans: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
             --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
         }
@@ -35,111 +44,173 @@
             background: var(--bg);
             color: var(--ink);
             font-family: var(--sans);
-            font-size: 15px;
+            font-size: 15.5px;
             line-height: 1.5;
-            font-feature-settings: 'ss01', 'ss02';
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            font-feature-settings: 'ss01', 'ss03';
         }
         body {
             display: flex;
             flex-direction: column;
             min-height: 100dvh;
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            /* warm glow */
+            background:
+                radial-gradient(1000px 500px at 10% -10%, rgba(255, 165, 88, 0.08), transparent 60%),
+                radial-gradient(800px 400px at 90% 110%, rgba(255, 138, 166, 0.05), transparent 60%),
+                var(--bg);
         }
-
         main {
             width: 100%;
-            max-width: 480px;
+            max-width: 500px;
             margin: 0 auto;
-            padding: 72px 24px 40px;
+            padding: 64px 24px 40px;
             flex: 1;
             display: flex;
             flex-direction: column;
         }
         @media (max-width: 480px) {
-            main { padding: 48px 20px 32px; }
+            main { padding: 44px 20px 32px; }
         }
 
-        /* Header */
-        .wordmark {
-            font-size: 15px;
-            font-weight: 600;
-            letter-spacing: -0.01em;
-            color: var(--ink);
-            margin-bottom: 56px;
+        /* Word­mark + mascot */
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 52px;
         }
-
-        /* Typography */
-        h1 {
-            font-size: 32px;
-            font-weight: 600;
+        .brand .mascot {
+            width: 32px;
+            height: 32px;
+            background: var(--amber);
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            color: var(--bg);
+            font-size: 14px;
+            font-weight: 800;
             letter-spacing: -0.03em;
-            line-height: 1.15;
-            margin: 0 0 12px;
-            color: var(--ink);
+            position: relative;
+            animation: peek 6s ease-in-out infinite;
+        }
+        .brand .mascot::before,
+        .brand .mascot::after {
+            /* eyes */
+            content: '';
+            position: absolute;
+            top: 10px;
+            width: 3px;
+            height: 7px;
+            background: var(--bg);
+            border-radius: 1px;
+        }
+        .brand .mascot::before { left: 8px; }
+        .brand .mascot::after  { right: 8px; }
+        @keyframes peek {
+            0%, 92%, 100% { transform: translateY(0) rotate(-2deg); }
+            95%           { transform: translateY(-2px) rotate(4deg); }
+            97%           { transform: translateY(0) rotate(-4deg); }
+        }
+        .brand .name {
+            font-weight: 700;
+            font-size: 17px;
+            letter-spacing: -0.02em;
+        }
+
+        /* Hero type */
+        h1 {
+            font-size: clamp(36px, 7vw, 46px);
+            font-weight: 700;
+            letter-spacing: -0.035em;
+            line-height: 1.02;
+            margin: 0 0 14px;
+        }
+        h1 .wink {
+            color: var(--amber);
+            display: inline-block;
+            transform-origin: 60% 80%;
+            animation: wink 5.5s ease-in-out infinite;
+        }
+        @keyframes wink {
+            0%, 92%, 100% { transform: rotate(0); }
+            96%           { transform: rotate(-12deg) scale(1.02); }
         }
         p.sub {
-            font-size: 15px;
+            font-size: 16px;
             color: var(--ink-muted);
-            margin: 0 0 32px;
+            margin: 0 0 36px;
             max-width: 40ch;
         }
 
-        /* Input */
-        .field { margin-bottom: 16px; }
+        /* Input field */
         label {
             display: block;
             font-size: 12px;
             font-weight: 500;
             color: var(--ink-muted);
-            margin-bottom: 8px;
-            letter-spacing: -0.005em;
+            margin-bottom: 10px;
         }
         input.code {
             width: 100%;
             background: var(--surface);
             color: var(--ink);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 16px;
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 20px 16px;
             font-family: var(--mono);
-            font-weight: 500;
-            font-size: 22px;
-            letter-spacing: 0.4em;
+            font-weight: 600;
+            font-size: 26px;
+            letter-spacing: 0.42em;
             text-align: center;
             text-transform: uppercase;
             outline: none;
-            transition: border-color 150ms, background 150ms;
+            transition: border-color 200ms, background 200ms, box-shadow 200ms;
         }
-        input.code::placeholder {
-            color: var(--ink-faint);
-            letter-spacing: 0.3em;
-        }
-        input.code:hover { border-color: var(--border-2); }
-        input.code:focus {
-            border-color: var(--ink-dim);
+        input.code::placeholder { color: var(--ink-faint); letter-spacing: 0.32em; }
+        input.code:hover  { border-color: var(--border-2); }
+        input.code:focus  {
+            border-color: var(--amber);
             background: var(--surface-2);
+            box-shadow: 0 0 0 4px var(--amber-soft);
+        }
+        input.code.shake { animation: shake 0.36s ease-in-out; }
+        @keyframes shake {
+            10%, 90% { transform: translateX(-2px); }
+            20%, 80% { transform: translateX(3px); }
+            30%, 50%, 70% { transform: translateX(-5px); }
+            40%, 60% { transform: translateX(5px); }
         }
 
         /* Buttons */
         button.primary {
             width: 100%;
+            margin-top: 14px;
             appearance: none;
-            border: 0;
-            background: var(--ink);
-            color: var(--bg);
+            border: 1px solid var(--amber);
+            background: linear-gradient(180deg, #ffb06a 0%, var(--amber-2) 100%);
+            color: #1a0d02;
             font-family: inherit;
-            font-weight: 600;
-            font-size: 14px;
-            padding: 13px 16px;
-            border-radius: 10px;
+            font-weight: 700;
+            font-size: 15px;
+            letter-spacing: -0.005em;
+            padding: 15px 20px;
+            border-radius: 14px;
             cursor: pointer;
-            transition: opacity 150ms, transform 80ms;
+            transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 200ms, box-shadow 200ms;
+            box-shadow: 0 10px 24px -10px rgba(255, 138, 51, 0.55), 0 2px 0 0 rgba(0,0,0,0.2);
         }
-        button.primary:hover:not(:disabled) { opacity: 0.92; }
-        button.primary:active:not(:disabled) { transform: translateY(1px); }
-        button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.primary:hover:not(:disabled) {
+            transform: translateY(-1px) scale(1.01);
+            filter: brightness(1.08);
+            box-shadow: 0 14px 30px -10px rgba(255, 138, 51, 0.65), 0 2px 0 0 rgba(0,0,0,0.2);
+        }
+        button.primary:active:not(:disabled) {
+            transform: translateY(1px) scale(0.99);
+            box-shadow: 0 6px 16px -10px rgba(255, 138, 51, 0.5);
+        }
+        button.primary:disabled { opacity: 0.55; cursor: not-allowed; }
 
         button.ghost {
             appearance: none;
@@ -148,129 +219,150 @@
             border: 1px solid var(--border);
             font-family: inherit;
             font-weight: 500;
-            font-size: 13px;
-            padding: 10px 14px;
-            border-radius: 8px;
+            font-size: 13.5px;
+            padding: 11px 14px;
+            border-radius: 10px;
             cursor: pointer;
-            transition: background 150ms, border-color 150ms;
+            transition: background 180ms, border-color 180ms, transform 100ms;
         }
-        button.ghost:hover {
-            background: var(--surface-2);
-            border-color: var(--border-2);
-        }
+        button.ghost:hover  { background: var(--surface-2); border-color: var(--border-2); }
         button.ghost:active { transform: translateY(1px); }
 
-        /* Error */
         .err {
             color: var(--err);
-            font-size: 13px;
-            margin-top: 10px;
+            font-size: 13.5px;
+            margin-top: 12px;
             min-height: 18px;
         }
 
         /* Stage transitions */
-        .stage { animation: fade 250ms ease-out; }
+        .stage { animation: fade 360ms cubic-bezier(0.2, 0.8, 0.2, 1); }
         .stage.hidden { display: none; }
         @keyframes fade {
-            from { opacity: 0; transform: translateY(4px); }
+            from { opacity: 0; transform: translateY(8px); }
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* Success header */
+        /* Success */
         .success {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 32px;
+            gap: 14px;
+            margin: 0 0 32px;
+            padding: 14px 16px;
+            background: linear-gradient(180deg, rgba(146, 221, 106, 0.09) 0%, rgba(146, 221, 106, 0.04) 100%);
+            border: 1px solid rgba(146, 221, 106, 0.22);
+            border-radius: 14px;
         }
-        .dot-ok {
-            width: 8px;
-            height: 8px;
+        .check {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
             border-radius: 50%;
             background: var(--ok);
-            flex: 0 0 8px;
+            color: #0e0b07;
+            display: grid;
+            place-items: center;
+            font-weight: 700;
+            font-size: 14px;
+            animation: pop 420ms cubic-bezier(0.34, 1.6, 0.64, 1);
+        }
+        @keyframes pop {
+            0%   { transform: scale(0) rotate(-20deg); }
+            70%  { transform: scale(1.15) rotate(5deg); }
+            100% { transform: scale(1) rotate(0); }
         }
         .success-text {
-            font-size: 14px;
-            color: var(--ink-muted);
+            font-size: 14.5px;
+            color: var(--ink-dim);
         }
         .success-text strong {
             color: var(--ink);
-            font-weight: 500;
+            font-weight: 600;
         }
 
         /* Tabs */
         .tabs {
-            display: flex;
-            gap: 24px;
-            margin: 0 0 24px;
-            border-bottom: 1px solid var(--border);
+            display: inline-flex;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 4px;
+            gap: 2px;
+            margin: 0 0 18px;
         }
         .tabs button {
             appearance: none;
-            background: none;
-            border: 0;
-            padding: 0 0 14px;
-            margin-bottom: -1px;
+            background: transparent;
             color: var(--ink-muted);
+            border: 0;
             font-family: inherit;
             font-weight: 500;
-            font-size: 14px;
+            font-size: 13px;
+            padding: 8px 14px;
+            border-radius: 7px;
             cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: color 150ms, border-color 150ms;
+            transition: background 160ms, color 160ms;
         }
         .tabs button:hover { color: var(--ink-dim); }
         .tabs button.active {
+            background: var(--surface-2);
             color: var(--ink);
-            border-bottom-color: var(--ink);
         }
 
-        /* Step */
         .step {
-            font-size: 12px;
+            font-size: 12.5px;
             font-weight: 500;
             color: var(--ink-muted);
-            margin: 24px 0 10px;
+            margin: 22px 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
         }
-        .step:first-child { margin-top: 0; }
-        .step .n {
-            color: var(--ink-faint);
-            margin-right: 6px;
-            font-variant-numeric: tabular-nums;
+        .step .bubble {
+            display: inline-grid;
+            place-items: center;
+            width: 20px;
+            height: 20px;
+            background: var(--amber-soft);
+            color: var(--amber);
+            border-radius: 50%;
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 700;
         }
         p.note {
-            font-size: 13px;
+            font-size: 13.5px;
             color: var(--ink-muted);
             margin: 10px 0 0;
-            line-height: 1.55;
+            line-height: 1.6;
         }
         .kbd {
             font-family: var(--mono);
-            font-size: 12px;
-            background: var(--surface);
-            padding: 2px 6px;
-            border-radius: 4px;
+            font-size: 12.5px;
+            background: var(--bg-tint);
+            padding: 2px 7px;
+            border-radius: 5px;
             border: 1px solid var(--border);
             color: var(--ink-dim);
         }
 
-        /* Code */
+        /* Snippet */
         .snippet-wrap {
             position: relative;
-            background: var(--surface);
+            background: var(--bg-tint);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: 12px;
             overflow: hidden;
         }
         pre.snippet {
             margin: 0;
-            padding: 14px 16px;
-            padding-right: 72px;
+            padding: 16px 18px;
+            padding-right: 80px;
             overflow-x: auto;
             font-family: var(--mono);
-            font-size: 12px;
-            line-height: 1.6;
+            font-size: 12.5px;
+            line-height: 1.65;
             color: var(--ink-dim);
             white-space: pre;
             tab-size: 2;
@@ -288,80 +380,94 @@
             top: 10px;
             right: 10px;
             appearance: none;
-            background: var(--surface-2);
+            background: var(--surface);
             color: var(--ink-dim);
             border: 1px solid var(--border-2);
             font-family: inherit;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 500;
-            padding: 6px 10px;
-            border-radius: 6px;
+            padding: 7px 11px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 150ms, color 150ms;
+            transition: background 160ms, color 160ms, transform 100ms;
         }
-        .copy-btn:hover {
-            background: var(--bg);
-            color: var(--ink);
-        }
+        .copy-btn:hover { background: var(--surface-2); color: var(--ink); }
+        .copy-btn:active { transform: scale(0.96); }
         .copy-btn.copied {
             color: var(--ok);
-            border-color: var(--ok);
+            border-color: rgba(146, 221, 106, 0.4);
+            background: rgba(146, 221, 106, 0.08);
+            animation: bounce 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes bounce {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.08); }
+            100% { transform: scale(1); }
         }
 
-        /* Test */
         .test-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px;
+            gap: 10px;
             margin-top: 10px;
         }
-        @media (max-width: 420px) {
-            .test-row { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 420px) { .test-row { grid-template-columns: 1fr; } }
         .test-status {
-            font-size: 13px;
+            font-size: 13.5px;
             color: var(--ink-muted);
             margin-top: 12px;
-            min-height: 18px;
+            min-height: 20px;
         }
         .test-status.ok  { color: var(--ok); }
         .test-status.err { color: var(--err); }
 
         /* Footer */
         footer {
-            padding: 32px 24px 32px;
+            padding: 28px 24px 36px;
             text-align: center;
-            font-size: 13px;
+            font-size: 14px;
             color: var(--ink-faint);
         }
         footer a {
             color: var(--ink-muted);
             text-decoration: none;
-            transition: color 150ms;
+            border-bottom: 1px dotted var(--border-2);
+            padding-bottom: 1px;
+            transition: color 160ms, border-color 160ms;
         }
-        footer a:hover { color: var(--ink); }
+        footer a:hover { color: var(--amber); border-bottom-color: var(--amber); }
+        footer .heart {
+            display: inline-block;
+            animation: heartbeat 2.4s ease-in-out infinite;
+            color: var(--pink);
+        }
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50%      { transform: scale(1.15); }
+        }
     </style>
 </head>
 <body>
     <main>
-        <div class="wordmark">Cued</div>
+        <div class="brand">
+            <div class="mascot" aria-hidden="true"></div>
+            <div class="name">Cued</div>
+        </div>
 
         <section id="stage-pair" class="stage">
-            <h1>Pair your watch</h1>
-            <p class="sub">Enter the six-character code shown on your wrist.</p>
+            <h1>Pair your watch <span class="wink">✦</span></h1>
+            <p class="sub">Type the six-letter code on your wrist.</p>
 
-            <div class="field">
-                <label for="code">Code</label>
-                <input id="code" class="code" maxlength="6" autofocus autocomplete="off" autocapitalize="characters" inputmode="text" placeholder="——————">
-            </div>
-            <button id="submit" class="primary">Register</button>
+            <label for="code">Code</label>
+            <input id="code" class="code" maxlength="6" autofocus autocomplete="off" autocapitalize="characters" inputmode="text" placeholder="——————">
+            <button id="submit" class="primary">Let's go</button>
             <p id="error" class="err"></p>
         </section>
 
         <section id="stage-done" class="stage hidden">
             <div class="success">
-                <div class="dot-ok"></div>
-                <div class="success-text"><strong>Watch connected.</strong> Two ways to finish.</div>
+                <div class="check">✓</div>
+                <div class="success-text"><strong>You're cued.</strong> Two ways to wrap up.</div>
             </div>
 
             <div class="tabs" role="tablist">
@@ -370,26 +476,26 @@
             </div>
 
             <div id="pane-agent">
-                <div class="step"><span class="n">01</span>Copy the prompt</div>
+                <div class="step"><span class="bubble">1</span>Copy the prompt</div>
                 <div class="snippet-wrap">
                     <pre class="snippet"><code id="agent-prompt" class="agent"></code></pre>
                     <button class="copy-btn" data-copy="agent-prompt">Copy</button>
                 </div>
-                <div class="step"><span class="n">02</span>Paste into Claude Code</div>
+                <div class="step"><span class="bubble">2</span>Paste into Claude Code</div>
                 <p class="note">Run <span class="kbd">claude</span> in your terminal and paste. It edits <span class="kbd">~/.claude/settings.json</span> for you.</p>
             </div>
 
             <div id="pane-manual" style="display: none;">
-                <div class="step"><span class="n">01</span>Copy the snippet</div>
+                <div class="step"><span class="bubble">1</span>Copy the snippet</div>
                 <div class="snippet-wrap">
                     <pre class="snippet"><code id="manual-snippet"></code></pre>
                     <button class="copy-btn" data-copy="manual-snippet">Copy</button>
                 </div>
-                <div class="step"><span class="n">02</span>Paste into your config</div>
+                <div class="step"><span class="bubble">2</span>Paste into your config</div>
                 <p class="note">Open <span class="kbd">~/.claude/settings.json</span> and merge into the <span class="kbd">hooks</span> block.</p>
             </div>
 
-            <div class="step"><span class="n">03</span>Test it</div>
+            <div class="step"><span class="bubble">3</span>Give it a wave</div>
             <div class="test-row">
                 <button class="ghost" data-status="working">Send working</button>
                 <button class="ghost" data-status="done">Send done</button>
@@ -399,7 +505,7 @@
     </main>
 
     <footer>
-        <a href="https://buymeacoffee.com/cuedapp" target="_blank" rel="noopener">Buy me a coffee</a>
+        Made with <span class="heart" aria-label="love">♥</span> · <a href="https://buymeacoffee.com/cuedapp" target="_blank" rel="noopener">buy me a coffee</a>
     </footer>
 
     <script>
@@ -420,7 +526,10 @@
 
         let apiKey = null
 
-        function showError(msg) { $error.textContent = msg }
+        function showError(msg) {
+            $error.textContent = msg
+            if (msg) { $code.classList.remove('shake'); void $code.offsetWidth; $code.classList.add('shake') }
+        }
 
         function manualSnippet(key, url) {
             const line = (status) =>
@@ -471,7 +580,7 @@ Confirm the file is valid JSON, then tell me "done".`
         async function pair() {
             const code = $code.value.trim().toUpperCase()
             if (!/^[A-Z0-9]{6}$/.test(code)) {
-                showError('Enter the 6-character code shown on your watch.')
+                showError('Needs all 6 characters.')
                 return
             }
             $submit.disabled = true
@@ -493,7 +602,7 @@ Confirm the file is valid JSON, then tell me "done".`
                 requestAnimationFrame(() => ($stageDone.style.animation = ''))
             } catch (err) {
                 if (err.message === 'invalid_or_expired') {
-                    showError('Code invalid or expired. Generate a new one on your watch.')
+                    showError('That code is expired. Get a fresh one from your watch.')
                 } else {
                     showError(err.message)
                 }
@@ -505,6 +614,7 @@ Confirm the file is valid JSON, then tell me "done".`
         $code.addEventListener('keydown', (e) => { if (e.key === 'Enter') pair() })
         $code.addEventListener('input', () => {
             $code.value = $code.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
+            if ($error.textContent) showError('')
         })
 
         $tabAgent.addEventListener('click', () => {
@@ -520,12 +630,12 @@ Confirm the file is valid JSON, then tell me "done".`
             btn.addEventListener('click', async () => {
                 const target = document.getElementById(btn.dataset.copy)
                 await navigator.clipboard.writeText(target.textContent)
-                btn.textContent = 'Copied'
+                btn.textContent = 'Copied ✓'
                 btn.classList.add('copied')
                 setTimeout(() => {
                     btn.textContent = 'Copy'
                     btn.classList.remove('copied')
-                }, 1600)
+                }, 1700)
             })
         })
 
@@ -546,7 +656,7 @@ Confirm the file is valid JSON, then tell me "done".`
                     })
                     const data = await res.json()
                     if (data.delivered > 0) {
-                        $testStatus.textContent = `Delivered to ${data.delivered} device`
+                        $testStatus.textContent = `Sent. Check your wrist.`
                         $testStatus.className = 'test-status ok'
                     } else {
                         $testStatus.textContent = `No delivery. ${data.error || ''}`
