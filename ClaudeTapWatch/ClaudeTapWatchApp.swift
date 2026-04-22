@@ -77,7 +77,13 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
 
     func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
         for task in backgroundTasks {
-            WidgetCenter.shared.reloadAllTimelines()
+            // Backup reload: only fires if the cached state drifted from the
+            // last reloaded state (e.g., NSE wrote cache but reload was
+            // dropped). Repeat states skip the reload entirely.
+            if let cached = ClaudeTapConstants.sharedDefaults?
+                .string(forKey: ClaudeTapConstants.Defaults.stateKey) {
+                ClaudeTapConstants.reloadComplicationIfChanged(cached)
+            }
             task.setTaskCompletedWithSnapshot(false)
         }
     }

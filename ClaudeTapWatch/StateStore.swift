@@ -121,7 +121,7 @@ final class StateStore: ObservableObject {
             persist(targetState, at: targetDate)
         } else {
             currentState = targetState
-            WidgetCenter.shared.reloadAllTimelines()
+            ClaudeTapConstants.reloadComplicationIfChanged(targetState.rawValue)
         }
         try? await Task.sleep(for: postCommitDelay)
         isSyncing = false
@@ -140,7 +140,7 @@ final class StateStore: ObservableObject {
             defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
         }
         currentState = state
-        WidgetCenter.shared.reloadAllTimelines()
+        ClaudeTapConstants.reloadComplicationIfChanged(state.rawValue)
         scheduleStaleRevert()
     }
 

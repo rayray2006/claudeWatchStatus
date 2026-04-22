@@ -26,7 +26,7 @@ struct ClaudeTapComplicationProvider: TimelineProvider {
         // Only `done` auto-reverts to idle — the other states stay as-is.
         if state == .done, now.timeIntervalSince(stateTime) >= Self.staleAfter {
             let entry = ClaudeTapEntry(date: now, state: .idle, frame: 0)
-            completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(300))))
+            completion(Timeline(entries: [entry], policy: .never))
             return
         }
 
@@ -39,8 +39,9 @@ struct ClaudeTapComplicationProvider: TimelineProvider {
             }
         }
 
-        let lastDate = entries.last?.date ?? now
-        completion(Timeline(entries: entries, policy: .after(lastDate.addingTimeInterval(300))))
+        // Explicit `reloadAllTimelines()` calls drive updates — the system's
+        // scheduled reloads would just pull the same cache and waste budget.
+        completion(Timeline(entries: entries, policy: .never))
     }
 
     private func currentState() -> TapState {

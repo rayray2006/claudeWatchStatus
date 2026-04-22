@@ -30,7 +30,7 @@ final class NotificationService: UNNotificationServiceExtension {
         if let raw, let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID) {
             defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
             defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
-            WidgetCenter.shared.reloadAllTimelines()
+            ClaudeTapConstants.reloadComplicationIfChanged(raw)
             print("NSE_WROTE \(raw)")
         }
 
