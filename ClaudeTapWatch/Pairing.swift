@@ -96,12 +96,16 @@ final class Pairing {
     private func startPolling(code: String) {
         pollTask?.cancel()
         pollTask = Task { [weak self] in
+            // Fire the first check immediately (no initial sleep), then
+            // tight-poll at 800ms so the user sees "Paired!" within about a
+            // second of typing the code on the web form.
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3))
-                if Task.isCancelled { break }
                 guard let self else { break }
                 await self.checkStatus(code: code)
                 if case .paired = await self.stage { break }
+                if case .pairedCelebrate = await self.stage { break }
+                try? await Task.sleep(for: .milliseconds(800))
+                if Task.isCancelled { break }
             }
         }
     }
@@ -125,7 +129,7 @@ final class Pairing {
                 pollTask = nil
                 // Brief celebration, then flip to the main UI.
                 stage = .pairedCelebrate
-                try? await Task.sleep(for: .milliseconds(1200))
+                try? await Task.sleep(for: .milliseconds(900))
                 stage = .paired
             }
         } catch {
