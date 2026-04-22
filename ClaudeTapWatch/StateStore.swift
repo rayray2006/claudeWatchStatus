@@ -23,7 +23,9 @@ final class StateStore: ObservableObject {
     @Published private(set) var isSyncing: Bool = false
 
     private let preCommitDelay: Duration = .milliseconds(200)
-    private let postCommitDelay: Duration = .milliseconds(700)
+    /// Canvas-based sprite render runs ~50–100K fill operations on watch
+    /// hardware. 1500ms covers the worst-case paint before the spinner fades.
+    private let postCommitDelay: Duration = .milliseconds(1500)
 
     /// Only `done` auto-expires: it's a transient completion state and we
     /// don't want "Done" sitting on the watch face forever. `needsApproval`

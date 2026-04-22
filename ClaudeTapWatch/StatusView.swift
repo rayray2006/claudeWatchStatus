@@ -16,9 +16,11 @@ struct StatusView: View {
 
                 if store.isSyncing {
                     Color.black
+                        .transition(.opacity)
                     ProgressView()
                         .controlSize(.large)
                         .tint(.white)
+                        .transition(.opacity)
                 }
             }
             .frame(width: 140, height: 140)
