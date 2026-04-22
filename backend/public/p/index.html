@@ -429,28 +429,36 @@
             </div>
 
             <div class="tabs" role="tablist">
-                <button id="tab-agent"  class="active" role="tab">Agent</button>
-                <button id="tab-manual"             role="tab">Claude Code</button>
+                <button id="tab-claude" class="active" role="tab">Claude Code</button>
+                <button id="tab-codex"             role="tab">Codex</button>
+                <button id="tab-gemini"            role="tab">Gemini</button>
             </div>
 
-            <div id="pane-agent">
-                <div class="step"><span class="bubble">1</span>Copy the prompt</div>
+            <div id="pane-claude">
+                <div class="step"><span class="bubble">1</span>Merge into <span class="kbd">~/.claude/settings.json</span></div>
                 <div class="snippet-wrap">
-                    <pre class="snippet"><code id="agent-prompt" class="agent"></code></pre>
-                    <button class="copy-btn" data-copy="agent-prompt">Copy</button>
+                    <pre class="snippet"><code id="claude-snippet"></code></pre>
+                    <button class="copy-btn" data-copy="claude-snippet">Copy</button>
                 </div>
-                <div class="step"><span class="bubble">2</span>Paste into your agent</div>
-                <p class="note">Works in any coding agent that supports lifecycle hooks — Claude Code, Codex, Gemini CLI, aider. The agent figures out where its config lives.</p>
+                <p class="note">Add to the <span class="kbd">hooks</span> block (create one if missing).</p>
             </div>
 
-            <div id="pane-manual" style="display: none;">
-                <div class="step"><span class="bubble">1</span>Copy the snippet</div>
+            <div id="pane-codex" style="display: none;">
+                <div class="step"><span class="bubble">1</span>Add to <span class="kbd">~/.codex/config.toml</span></div>
                 <div class="snippet-wrap">
-                    <pre class="snippet"><code id="manual-snippet"></code></pre>
-                    <button class="copy-btn" data-copy="manual-snippet">Copy</button>
+                    <pre class="snippet"><code id="codex-snippet"></code></pre>
+                    <button class="copy-btn" data-copy="codex-snippet">Copy</button>
                 </div>
-                <div class="step"><span class="bubble">2</span>Paste into your config</div>
-                <p class="note">Open <span class="kbd">~/.claude/settings.json</span> and merge into the <span class="kbd">hooks</span> block.</p>
+                <p class="note">Codex CLI's stable <span class="kbd">notify</span> hook fires on turn-end, so you'll get the <em>done</em> tap. <em>Working</em> and <em>approval</em> need experimental hooks — enable with <span class="kbd">codex --enable codex_hooks</span> and use the Claude Code JSON in <span class="kbd">~/.codex/hooks.json</span>.</p>
+            </div>
+
+            <div id="pane-gemini" style="display: none;">
+                <div class="step"><span class="bubble">1</span>Merge into <span class="kbd">~/.gemini/settings.json</span></div>
+                <div class="snippet-wrap">
+                    <pre class="snippet"><code id="gemini-snippet"></code></pre>
+                    <button class="copy-btn" data-copy="gemini-snippet">Copy</button>
+                </div>
+                <p class="note">Gemini CLI uses <span class="kbd">BeforeTool</span> / <span class="kbd">AfterAgent</span> / <span class="kbd">Notification</span> events. Merge into existing <span class="kbd">hooks</span> if present.</p>
             </div>
         </section>
     </main>
@@ -469,10 +477,12 @@
         const $stageDone = $('stage-done')
         const $agentPrompt = $('agent-prompt')
         const $manualSnippet = $('manual-snippet')
-        const $tabAgent = $('tab-agent')
-        const $tabManual = $('tab-manual')
-        const $paneAgent = $('pane-agent')
-        const $paneManual = $('pane-manual')
+        const $tabClaude = $('tab-claude')
+        const $tabCodex = $('tab-codex')
+        const $tabGemini = $('tab-gemini')
+        const $paneClaude = $('pane-claude')
+        const $paneCodex = $('pane-codex')
+        const $paneGemini = $('pane-gemini')
 
         let apiKey = null
 
@@ -481,46 +491,61 @@
             if (msg) { $code.classList.remove('shake'); void $code.offsetWidth; $code.classList.add('shake') }
         }
 
-        function manualSnippet(key, url) {
-            const line = (status) =>
-                `curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"${status}\\"}' ${url} >/dev/null 2>&1 &`
+        function curlLine(key, url, status) {
+            return `curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"${status}\\"}' ${url} >/dev/null 2>&1 &`
+        }
+
+        function claudeSnippet(key, url) {
             return `{
   "hooks": {
     "PreToolUse": [{
       "type": "command",
-      "command": "${line('working')}"
+      "command": "${curlLine(key, url, 'working')}"
     }],
     "Stop": [{
       "type": "command",
-      "command": "${line('done')}"
+      "command": "${curlLine(key, url, 'done')}"
     }],
     "Notification": [{
       "type": "command",
-      "command": "${line('approval')}"
+      "command": "${curlLine(key, url, 'approval')}"
     }]
   }
 }`
         }
 
-        function agentPrompt(key, url) {
-            return `Set up Cued wrist notifications on this machine.
+        function codexSnippet(key, url) {
+            // notify is invoked with one extra argv (a JSON string about the
+            // turn) — wrap in `sh -c` so the trailing arg is harmlessly
+            // dropped into $0.
+            const cmd = `curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"done\\"}' ${url} >/dev/null 2>&1`
+            return `notify = ["sh", "-c", "${cmd}"]`
+        }
 
-Wire three lifecycle hooks (or whatever you call them — hooks, callbacks, MCP triggers) into your config so each of these curl commands fires at the right moment:
-
-  WORKING — when you start running a tool / shell command:
-    curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"working"}' ${url} >/dev/null 2>&1 &
-
-  DONE — when you finish a turn / become idle:
-    curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"done"}' ${url} >/dev/null 2>&1 &
-
-  APPROVAL — when you're waiting on the user (permission prompt, plan review, anything blocking):
-    curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"approval"}' ${url} >/dev/null 2>&1 &
-
-Examples:
-  - Claude Code → ~/.claude/settings.json, "hooks" object: PreToolUse, Stop, Notification
-  - Codex / Gemini CLI / aider / others → find the equivalent lifecycle event system in their docs
-
-Edit the right config file for whichever agent you are, merging into existing hooks rather than replacing them. Confirm what you did and where the config lives.`
+        function geminiSnippet(key, url) {
+            return `{
+  "hooks": {
+    "BeforeTool": [{
+      "hooks": [{
+        "type": "command",
+        "command": "${curlLine(key, url, 'working')}"
+      }]
+    }],
+    "AfterAgent": [{
+      "hooks": [{
+        "type": "command",
+        "command": "${curlLine(key, url, 'done')}"
+      }]
+    }],
+    "Notification": [{
+      "matcher": "ToolPermission",
+      "hooks": [{
+        "type": "command",
+        "command": "${curlLine(key, url, 'approval')}"
+      }]
+    }]
+  }
+}`
         }
 
         async function pair() {
@@ -540,8 +565,9 @@ Edit the right config file for whichever agent you are, merging into existing ho
                 }
                 const data = await res.json()
                 apiKey = data.key
-                $agentPrompt.textContent = agentPrompt(data.key, data.pushUrl)
-                $manualSnippet.textContent = manualSnippet(data.key, data.pushUrl)
+                document.getElementById('claude-snippet').textContent = claudeSnippet(data.key, data.pushUrl)
+                document.getElementById('codex-snippet').textContent  = codexSnippet(data.key, data.pushUrl)
+                document.getElementById('gemini-snippet').textContent = geminiSnippet(data.key, data.pushUrl)
                 $stagePair.classList.add('hidden')
                 $stageDone.classList.remove('hidden')
                 $stageDone.style.animation = 'none'
@@ -563,14 +589,21 @@ Edit the right config file for whichever agent you are, merging into existing ho
             if ($error.textContent) showError('')
         })
 
-        $tabAgent.addEventListener('click', () => {
-            $tabAgent.classList.add('active'); $tabManual.classList.remove('active')
-            $paneAgent.style.display = ''; $paneManual.style.display = 'none'
-        })
-        $tabManual.addEventListener('click', () => {
-            $tabManual.classList.add('active'); $tabAgent.classList.remove('active')
-            $paneManual.style.display = ''; $paneAgent.style.display = 'none'
-        })
+        function activateTab(tab) {
+            const tabs = [
+                { btn: $tabClaude, pane: $paneClaude },
+                { btn: $tabCodex,  pane: $paneCodex },
+                { btn: $tabGemini, pane: $paneGemini },
+            ]
+            for (const t of tabs) {
+                const on = t.btn === tab
+                t.btn.classList.toggle('active', on)
+                t.pane.style.display = on ? '' : 'none'
+            }
+        }
+        $tabClaude.addEventListener('click', () => activateTab($tabClaude))
+        $tabCodex.addEventListener('click',  () => activateTab($tabCodex))
+        $tabGemini.addEventListener('click', () => activateTab($tabGemini))
 
         document.querySelectorAll('.copy-btn').forEach((btn) => {
             btn.addEventListener('click', async () => {
