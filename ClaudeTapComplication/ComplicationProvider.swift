@@ -23,14 +23,10 @@ struct ClaudeTapComplicationProvider: TimelineProvider {
         let now = Date()
         let (state, stateTime) = cachedStateAndTime()
 
-        // Aggressive fallback reload — system still rate-limits, but this gives
-        // it the shortest hint we can while keeping things sane.
-        let fallbackInterval: TimeInterval = 60
-
         // Only `done` auto-reverts to idle — the other states stay as-is.
         if state == .done, now.timeIntervalSince(stateTime) >= Self.staleAfter {
             let entry = ClaudeTapEntry(date: now, state: .idle, frame: 0)
-            completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(fallbackInterval))))
+            completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(300))))
             return
         }
 
@@ -44,7 +40,7 @@ struct ClaudeTapComplicationProvider: TimelineProvider {
         }
 
         let lastDate = entries.last?.date ?? now
-        completion(Timeline(entries: entries, policy: .after(lastDate.addingTimeInterval(fallbackInterval))))
+        completion(Timeline(entries: entries, policy: .after(lastDate.addingTimeInterval(300))))
     }
 
     private func currentState() -> TapState {

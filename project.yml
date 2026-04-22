@@ -25,7 +25,7 @@ targets:
     info:
       path: ClaudeTap/Info.plist
       properties:
-        CFBundleDisplayName: ClaudeTap
+        CFBundleDisplayName: Cued
         UILaunchScreen: {}
     settings:
       base:
@@ -50,6 +50,7 @@ targets:
     info:
       path: ClaudeTapWatch/Info.plist
       properties:
+        CFBundleDisplayName: Cued
         WKApplication: true
         WKCompanionAppBundleIdentifier: com.fm.claudetap
         WKRunsIndependentlyOfCompanionApp: true
