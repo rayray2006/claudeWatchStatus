@@ -575,12 +575,13 @@
                     </div>
 
                     <div id="pane-claude" class="pane" style="display: none;">
-                        <p class="lede">Open <span class="kbd">~/.claude/settings.json</span> (create it if it doesn't exist) and paste this in. If you already have a <span class="kbd">hooks</span> block, merge the three keys into it. Claude Code reloads settings live — no restart.</p>
+                        <p class="lede">Open <span class="kbd">~/.claude/settings.json</span> (create it if it doesn't exist) and paste this in. If you already have a <span class="kbd">hooks</span> block, merge the four keys into it. Claude Code reloads settings live — no restart.</p>
                         <div class="snippet-wrap">
                             <pre class="snippet"><code id="claude-snippet"></code></pre>
                             <button class="copy-btn" data-copy="claude-snippet">Copy</button>
                         </div>
                         <div class="behavior" aria-label="What each hook does">
+                            <span class="dot dot-w"></span><span class="k">UserPromptSubmit</span><span class="v">silent <em>thinking</em></span>
                             <span class="dot dot-w"></span><span class="k">PreToolUse</span><span class="v">silent <em>working</em></span>
                             <span class="dot dot-d"></span><span class="k">Stop</span><span class="v">wrist tap on <em>done</em></span>
                             <span class="dot dot-a"></span><span class="k">Notification</span><span class="v">wrist tap on <em>approval</em></span>
@@ -672,6 +673,13 @@
         function claudeSnippet(key, url) {
             return `{
   "hooks": {
+    "UserPromptSubmit": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "${curlLine(key, url, 'thinking')}"
+      }]
+    }],
     "PreToolUse": [{
       "matcher": "*",
       "hooks": [{

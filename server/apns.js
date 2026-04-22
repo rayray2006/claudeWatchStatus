@@ -53,6 +53,7 @@ export function sendPush({ token, status }) {
     const body = status === 'approval' ? 'Needs approval' :
                  status === 'done'     ? 'Done' :
                  status === 'working'  ? 'Working' :
+                 status === 'thinking' ? 'Thinking' :
                                          'Idle'
 
     const loud = status === 'approval' || status === 'done'

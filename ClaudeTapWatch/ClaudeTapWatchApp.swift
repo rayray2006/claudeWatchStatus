@@ -68,9 +68,8 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
                 withPreferredDate: Date().addingTimeInterval(2),
                 userInfo: nil
             ) { _ in }
-            if state.needsTap {
-                WKInterfaceDevice.current().play(state == .needsApproval ? .notification : .success)
-            }
+            // Play the user's chosen haptic for this state (if any).
+            Task { await HapticPrefs.shared.choice(for: state).play() }
         }
         return .newData
     }

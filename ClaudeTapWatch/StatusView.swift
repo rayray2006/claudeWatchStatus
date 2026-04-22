@@ -40,10 +40,8 @@ struct StatusView: View {
             WKInterfaceDevice.current().play(.click)
             showSettings = true
         }
-        .confirmationDialog("Settings", isPresented: $showSettings, titleVisibility: .visible) {
-            Button("Reset pairing", role: .destructive) {
-                Pairing.shared.reset()
-            }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
         }
         .task { await store.syncFromDeliveredNotifications() }
         .onChange(of: scenePhase) { _, newPhase in
@@ -56,6 +54,7 @@ struct StatusView: View {
     private var statusColor: Color {
         switch store.currentState {
         case .idle: return .gray
+        case .thinking: return .orange
         case .working: return .orange
         case .done: return .green
         case .needsApproval: return .blue

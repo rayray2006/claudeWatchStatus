@@ -127,10 +127,24 @@ final class StateStore: ObservableObject {
         isSyncing = false
     }
 
-    /// Apply a state received in-flight (foreground delegate or background handler).
+    private var inFlightTransition: Task<Void, Never>?
+
+    /// Apply a state received in-flight (foreground delegate or background
+    /// handler). Shows the spinner during the transition so the user sees the
+    /// state change happen, not just snap.
     func updateState(_ state: TapState) {
-        if isSyncing { isSyncing = false }
-        persist(state, at: Date())
+        inFlightTransition?.cancel()
+        guard state != currentState else { return }
+
+        inFlightTransition = Task { @MainActor in
+            isSyncing = true
+            try? await Task.sleep(for: preCommitDelay)
+            if Task.isCancelled { return }
+            persist(state, at: Date())
+            try? await Task.sleep(for: postCommitDelay)
+            if Task.isCancelled { return }
+            isSyncing = false
+        }
     }
 
     private func persist(_ state: TapState, at date: Date) {

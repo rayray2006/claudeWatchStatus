@@ -7,7 +7,7 @@ import { isPermanentFailure, sendPush, type Status } from '../apns/push.js'
 
 export const pushRoutes = new Hono()
 
-const VALID_STATES: ReadonlySet<Status> = new Set(['idle', 'working', 'done', 'approval'])
+const VALID_STATES: ReadonlySet<Status> = new Set(['idle', 'thinking', 'working', 'done', 'approval'])
 
 /**
  * POST /v1/push — the Mac Claude Code hook hits this with an API key and a

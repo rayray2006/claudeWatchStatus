@@ -43,6 +43,7 @@ struct ComplicationEntryView: View {
     private var assetName: String {
         switch entry.state {
         case .idle:          return "ClaudeIdle"
+        case .thinking:      return "ClaudeWorking"
         case .working:       return "ClaudeWorking"
         case .done:          return "ClaudeDone"
         case .needsApproval: return "ClaudeApproval"
@@ -52,6 +53,7 @@ struct ComplicationEntryView: View {
     private var inlineIcon: String {
         switch entry.state {
         case .idle:          return "sparkle"
+        case .thinking:      return "brain"
         case .working:       return "ellipsis.circle"
         case .done:          return "checkmark.circle"
         case .needsApproval: return "hand.raised"

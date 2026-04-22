@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { connect, type ClientHttp2Session } from 'node:http2'
 import { getApnsJwt } from './jwt.js'
 
-export type Status = 'idle' | 'working' | 'done' | 'approval'
+export type Status = 'idle' | 'thinking' | 'working' | 'done' | 'approval'
 
 export interface PushResult {
     ok: boolean
@@ -29,7 +29,8 @@ function buildPayload(status: Status) {
     const body =
         status === 'approval' ? 'Needs approval' :
         status === 'done'     ? 'Done' :
-        status === 'working'  ? 'Working' : 'Idle'
+        status === 'working'  ? 'Working' :
+        status === 'thinking' ? 'Thinking' : 'Idle'
 
     const aps: Record<string, unknown> = {
         alert: { body },
