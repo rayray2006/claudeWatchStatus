@@ -50,7 +50,7 @@ export function sendPush({ token, status }) {
     // alert body is empty — so every push must carry a non-empty body even
     // for silent states. The NSE clears it again before the notification is
     // delivered to the user for idle/working.
-    const body = status === 'approval' ? 'Needs approval' :
+    const body = status === 'approval' ? 'Approval' :
                  status === 'done'     ? 'Done' :
                  status === 'working'  ? 'Working' :
                  status === 'thinking' ? 'Thinking' :

@@ -21,7 +21,7 @@ enum TapState: String, Codable {
         case .thinking: return "Thinking..."
         case .working: return "Working..."
         case .done: return "Done"
-        case .needsApproval: return "Needs approval"
+        case .needsApproval: return "Approval"
         }
     }
 }

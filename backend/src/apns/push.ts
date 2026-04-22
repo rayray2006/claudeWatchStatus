@@ -27,7 +27,7 @@ function endpoint(env: 'sandbox' | 'production'): string {
 function buildPayload(status: Status) {
     const loud = ATTENTION.has(status)
     const body =
-        status === 'approval' ? 'Needs approval' :
+        status === 'approval' ? 'Approval' :
         status === 'done'     ? 'Done' :
         status === 'working'  ? 'Working' :
         status === 'thinking' ? 'Thinking' : 'Idle'
