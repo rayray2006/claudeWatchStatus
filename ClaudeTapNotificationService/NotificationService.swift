@@ -1,4 +1,5 @@
 import UserNotifications
+import WidgetKit
 
 /// Runs in a tiny separate process every time an APNs push with
 /// `mutable-content: 1` arrives — even when the main watch app is suspended
@@ -34,8 +35,14 @@ final class NotificationService: UNNotificationServiceExtension {
             defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
             if cached != raw {
                 defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
+                // Single-site, gated reload: only on real transitions, only
+                // for our specific widget kind. NSE runs first on every push
+                // so the main app doesn't need to also reload.
+                WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.smartStack)
+                print("NSE_RELOAD \(raw) (was \(cached ?? "nil"))")
+            } else {
+                print("NSE_SKIP \(raw) (unchanged)")
             }
-            print("NSE_WROTE \(raw) (wasCached=\(cached ?? "nil"))")
         }
 
         // 2. Shape the notification for display.
