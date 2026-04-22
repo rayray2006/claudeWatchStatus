@@ -16,7 +16,7 @@ from PIL import Image
 
 ASSETS = "/Users/rayray/Documents/Code/ClaudeTap/ClaudeTapWatch/Assets.xcassets"
 OUT = "/Users/rayray/Documents/Code/ClaudeTap/Shared/ClaudeSprites.swift"
-GRID = 512
+GRID = 256
 # Max RGB value a pixel can have and still be flood-filled as background.
 BG_THRESHOLD = 25
 

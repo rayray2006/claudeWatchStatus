@@ -61,7 +61,12 @@ struct ClaudeTapWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: ClaudeTapComplicationProvider()) { entry in
             ComplicationEntryView(entry: entry)
-                .containerBackground(.clear, for: .widget)
+                // Modern widget API: closure-based container background.
+                // Using `.clear` directly (the old shape) silently makes the
+                // system treat the widget as empty in some watchOS versions.
+                .containerBackground(for: .widget) {
+                    Color.black
+                }
         }
         .configurationDisplayName("Cued")
         .description("See your coding agent's state — thinking, working, done, or waiting on you.")
