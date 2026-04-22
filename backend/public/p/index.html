@@ -67,6 +67,30 @@
             display: flex;
             flex-direction: column;
         }
+        @media (min-width: 920px) {
+            main {
+                max-width: 1040px;
+                padding: 80px 40px 56px;
+            }
+            /* Stage 1 stays narrow & centered — it's just a code input */
+            #stage-pair {
+                max-width: 460px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            /* Stage 2 spreads wide: tabs full-width, content split */
+            #stage-done .tabs { width: fit-content; }
+            #stage-done .pane-grid {
+                display: grid;
+                grid-template-columns: 1.45fr 1fr;
+                gap: 32px;
+                align-items: start;
+            }
+            #stage-done .pane-grid .right {
+                position: sticky;
+                top: 24px;
+            }
+        }
         @media (max-width: 480px) {
             main { padding: 44px 20px 32px; }
         }
@@ -472,49 +496,73 @@
             </div>
 
             <div id="pane-agent">
-                <p class="lede">Easiest. Open any coding agent (Claude, Codex, Gemini, aider…), paste the prompt, let it edit your config.</p>
-                <div class="snippet-wrap">
-                    <pre class="snippet"><code id="agent-prompt" class="agent"></code></pre>
-                    <button class="copy-btn" data-copy="agent-prompt">Copy</button>
+                <div class="pane-grid">
+                    <div class="left">
+                        <div class="snippet-wrap">
+                            <pre class="snippet"><code id="agent-prompt" class="agent"></code></pre>
+                            <button class="copy-btn" data-copy="agent-prompt">Copy</button>
+                        </div>
+                    </div>
+                    <div class="right">
+                        <p class="lede">Easiest. Open any coding agent (Claude, Codex, Gemini, aider…), paste the prompt, let it edit your config.</p>
+                    </div>
                 </div>
             </div>
 
             <div id="pane-claude" style="display: none;">
-                <p class="lede">Drop the snippet into <span class="kbd">~/.claude/settings.json</span>. If a <span class="kbd">hooks</span> block already exists, merge the three keys into it.</p>
-                <div class="snippet-wrap">
-                    <pre class="snippet"><code id="claude-snippet"></code></pre>
-                    <button class="copy-btn" data-copy="claude-snippet">Copy</button>
+                <div class="pane-grid">
+                    <div class="left">
+                        <div class="snippet-wrap">
+                            <pre class="snippet"><code id="claude-snippet"></code></pre>
+                            <button class="copy-btn" data-copy="claude-snippet">Copy</button>
+                        </div>
+                    </div>
+                    <div class="right">
+                        <p class="lede">Drop into <span class="kbd">~/.claude/settings.json</span>. If a <span class="kbd">hooks</span> block already exists, merge the three keys.</p>
+                        <ul class="behavior">
+                            <li><span class="dot dot-w"></span><span class="kbd">PreToolUse</span> &nbsp;→ silent <em>working</em></li>
+                            <li><span class="dot dot-d"></span><span class="kbd">Stop</span> &nbsp;→ wrist tap on <em>done</em></li>
+                            <li><span class="dot dot-a"></span><span class="kbd">Notification</span> &nbsp;→ wrist tap on <em>approval</em></li>
+                        </ul>
+                    </div>
                 </div>
-                <ul class="behavior">
-                    <li><span class="dot dot-w"></span><span class="kbd">PreToolUse</span> &nbsp;→ silent <em>working</em> update</li>
-                    <li><span class="dot dot-d"></span><span class="kbd">Stop</span> &nbsp;→ wrist tap when Claude finishes</li>
-                    <li><span class="dot dot-a"></span><span class="kbd">Notification</span> &nbsp;→ wrist tap when Claude waits on you</li>
-                </ul>
             </div>
 
             <div id="pane-codex" style="display: none;">
-                <p class="lede">Add this line to <span class="kbd">~/.codex/config.toml</span> (create the file if it doesn't exist).</p>
-                <div class="snippet-wrap">
-                    <pre class="snippet"><code id="codex-snippet"></code></pre>
-                    <button class="copy-btn" data-copy="codex-snippet">Copy</button>
+                <div class="pane-grid">
+                    <div class="left">
+                        <div class="snippet-wrap">
+                            <pre class="snippet"><code id="codex-snippet"></code></pre>
+                            <button class="copy-btn" data-copy="codex-snippet">Copy</button>
+                        </div>
+                    </div>
+                    <div class="right">
+                        <p class="lede">Add to <span class="kbd">~/.codex/config.toml</span> (create the file if missing).</p>
+                        <ul class="behavior">
+                            <li><span class="dot dot-d"></span><span class="kbd">notify</span> &nbsp;→ wrist tap on <em>done</em></li>
+                        </ul>
+                        <p class="note">Stable Codex only fires on turn-end. To also get <em>working</em> and <em>approval</em>, enable experimental hooks: <span class="kbd">codex --enable codex_hooks</span> and use the Claude snippet in <span class="kbd">~/.codex/hooks.json</span>.</p>
+                    </div>
                 </div>
-                <ul class="behavior">
-                    <li><span class="dot dot-d"></span><span class="kbd">notify</span> &nbsp;→ wrist tap when Codex finishes a turn</li>
-                </ul>
-                <p class="note">Codex's stable hook only fires on turn-end, so this covers <em>done</em>. To also get <em>working</em> and <em>approval</em>, enable the experimental hook engine with <span class="kbd">codex --enable codex_hooks</span> and drop the Claude snippet into <span class="kbd">~/.codex/hooks.json</span>.</p>
             </div>
 
             <div id="pane-gemini" style="display: none;">
-                <p class="lede">Drop the snippet into <span class="kbd">~/.gemini/settings.json</span>. Merge into an existing <span class="kbd">hooks</span> block if present.</p>
-                <div class="snippet-wrap">
-                    <pre class="snippet"><code id="gemini-snippet"></code></pre>
-                    <button class="copy-btn" data-copy="gemini-snippet">Copy</button>
+                <div class="pane-grid">
+                    <div class="left">
+                        <div class="snippet-wrap">
+                            <pre class="snippet"><code id="gemini-snippet"></code></pre>
+                            <button class="copy-btn" data-copy="gemini-snippet">Copy</button>
+                        </div>
+                    </div>
+                    <div class="right">
+                        <p class="lede">Drop into <span class="kbd">~/.gemini/settings.json</span>. Merge into existing <span class="kbd">hooks</span> if present.</p>
+                        <ul class="behavior">
+                            <li><span class="dot dot-w"></span><span class="kbd">BeforeTool</span> &nbsp;→ silent <em>working</em></li>
+                            <li><span class="dot dot-d"></span><span class="kbd">AfterAgent</span> &nbsp;→ wrist tap on <em>done</em></li>
+                            <li><span class="dot dot-a"></span><span class="kbd">Notification</span> &nbsp;→ wrist tap on <em>approval</em></li>
+                        </ul>
+                    </div>
                 </div>
-                <ul class="behavior">
-                    <li><span class="dot dot-w"></span><span class="kbd">BeforeTool</span> &nbsp;→ silent <em>working</em> update</li>
-                    <li><span class="dot dot-d"></span><span class="kbd">AfterAgent</span> &nbsp;→ wrist tap when Gemini finishes</li>
-                    <li><span class="dot dot-a"></span><span class="kbd">Notification</span> &nbsp;→ wrist tap when Gemini asks permission</li>
-                </ul>
             </div>
         </section>
     </main>
