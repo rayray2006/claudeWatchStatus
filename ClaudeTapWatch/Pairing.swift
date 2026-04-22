@@ -38,6 +38,12 @@ final class Pairing {
     private init() {
         let already = UserDefaults.standard.bool(forKey: Self.pairedDefaultsKey)
         self.stage = already ? .paired : .idle
+        // Fresh install (or post-reset) — clear any App Group state left over
+        // from a previous install so the watch UI / Smart Stack widget start
+        // at idle instead of resurrecting an old "done" or "approval".
+        if !already {
+            Self.clearSharedState()
+        }
     }
 
     /// Called from the APNs registration callback.
@@ -52,10 +58,20 @@ final class Pairing {
         pollTask?.cancel()
         pollTask = nil
         UserDefaults.standard.set(false, forKey: Self.pairedDefaultsKey)
+        Self.clearSharedState()
         stage = .idle
         if apnsToken != nil {
             Task { await beginPairing() }
         }
+    }
+
+    /// Wipe the App Group state so the watch UI and Smart Stack widget
+    /// start fresh at idle. Called on first launch and on re-pair.
+    private static func clearSharedState() {
+        guard let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID) else { return }
+        defaults.removeObject(forKey: ClaudeTapConstants.Defaults.stateKey)
+        defaults.removeObject(forKey: ClaudeTapConstants.Defaults.stateTimeKey)
+        defaults.synchronize()
     }
 
     /// Retry from a failed state without waiting for a new APNs token.

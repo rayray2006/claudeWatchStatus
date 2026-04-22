@@ -35,9 +35,10 @@ final class NotificationService: UNNotificationServiceExtension {
             defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
             if cached != raw {
                 defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
-                // Single-site, gated reload: only on real transitions, only
-                // for our specific widget kind. NSE runs first on every push
-                // so the main app doesn't need to also reload.
+                // Force-flush so the widget process sees the new value before
+                // we ask the system to re-render. App Group UserDefaults isn't
+                // guaranteed to sync across processes in time otherwise.
+                defaults.synchronize()
                 WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.smartStack)
                 print("NSE_RELOAD \(raw) (was \(cached ?? "nil"))")
             } else {

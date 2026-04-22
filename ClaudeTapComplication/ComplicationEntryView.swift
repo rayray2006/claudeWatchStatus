@@ -16,20 +16,21 @@ struct ComplicationEntryView: View {
     }
 
     private var rectangularView: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ClaudeSpriteView(state: entry.state)
-                .frame(width: 38, height: 38)
-            VStack(alignment: .leading, spacing: 1) {
+                .frame(width: 64, height: 64)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(entry.state.label)
                     .font(.system(.headline, weight: .semibold))
                     .foregroundStyle(stateColor)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 if entry.state.isActive {
                     // `Text(_:style: .timer)` auto-updates at ~1Hz without
                     // needing extra timeline reloads — SwiftUI renders the
                     // ticking elapsed time natively on watchOS.
                     Text(entry.stateStartedAt, style: .timer)
-                        .font(.system(.caption2, design: .monospaced))
+                        .font(.system(.subheadline, design: .monospaced).weight(.medium))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                         .lineLimit(1)
