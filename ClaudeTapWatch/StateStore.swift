@@ -121,40 +121,31 @@ final class StateStore: ObservableObject {
             persist(targetState, at: targetDate)
         } else {
             currentState = targetState
-            ClaudeTapConstants.reloadComplicationIfChanged(targetState.rawValue)
+            WidgetCenter.shared.reloadAllTimelines()
         }
         try? await Task.sleep(for: postCommitDelay)
         isSyncing = false
     }
 
-    private var inFlightTransition: Task<Void, Never>?
-
     /// Apply a state received in-flight (foreground delegate or background
-    /// handler). Shows the spinner during the transition so the user sees the
-    /// state change happen, not just snap.
+    /// handler). No spinner — the spinner is reserved for sync-on-open when
+    /// the cached state has drifted ahead of what the view is showing.
     func updateState(_ state: TapState) {
-        inFlightTransition?.cancel()
-        guard state != currentState else { return }
-
-        inFlightTransition = Task { @MainActor in
-            isSyncing = true
-            try? await Task.sleep(for: preCommitDelay)
-            if Task.isCancelled { return }
-            persist(state, at: Date())
-            try? await Task.sleep(for: postCommitDelay)
-            if Task.isCancelled { return }
-            isSyncing = false
-        }
+        if isSyncing { isSyncing = false }
+        persist(state, at: Date())
     }
 
     private func persist(_ state: TapState, at date: Date) {
         print("PERSIST \(state.rawValue)@\(date.timeIntervalSince1970)")
+        let stateChanged = state != currentState
         if let defaults = UserDefaults(suiteName: appGroup) {
             defaults.set(state.rawValue, forKey: stateKey)
             defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
         }
         currentState = state
-        ClaudeTapConstants.reloadComplicationIfChanged(state.rawValue)
+        if stateChanged {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
         scheduleStaleRevert()
     }
 

@@ -28,10 +28,18 @@ final class NotificationService: UNNotificationServiceExtension {
 
         // 1. Cache update (always).
         if let raw, let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID) {
+            // Compare incoming push to the last cached value. This is the
+            // only honest signal of "state changed" — markers we update on
+            // request can desync if the system defers our reload.
+            let cached = defaults.string(forKey: ClaudeTapConstants.Defaults.stateKey)
             defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
             defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
-            ClaudeTapConstants.reloadComplicationIfChanged(raw)
-            print("NSE_WROTE \(raw)")
+            if cached != raw {
+                WidgetCenter.shared.reloadAllTimelines()
+                print("NSE_RELOAD \(raw) (was \(cached ?? "nil"))")
+            } else {
+                print("NSE_SKIP \(raw) (unchanged)")
+            }
         }
 
         // 2. Shape the notification for display.

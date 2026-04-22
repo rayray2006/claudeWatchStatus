@@ -75,14 +75,12 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     }
 
     func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+        // Backup reload after a push: NSE already triggered a reload when the
+        // state changed, but firing a second one ~2s later catches the rare
+        // case where the first was dropped. The system coalesces back-to-back
+        // reload requests so this is cheap.
         for task in backgroundTasks {
-            // Backup reload: only fires if the cached state drifted from the
-            // last reloaded state (e.g., NSE wrote cache but reload was
-            // dropped). Repeat states skip the reload entirely.
-            if let cached = ClaudeTapConstants.sharedDefaults?
-                .string(forKey: ClaudeTapConstants.Defaults.stateKey) {
-                ClaudeTapConstants.reloadComplicationIfChanged(cached)
-            }
+            WidgetCenter.shared.reloadAllTimelines()
             task.setTaskCompletedWithSnapshot(false)
         }
     }

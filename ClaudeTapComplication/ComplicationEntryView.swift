@@ -72,8 +72,8 @@ struct ClaudeTapComplicationWidget: Widget {
             ComplicationEntryView(entry: entry)
                 .containerBackground(.clear, for: .widget)
         }
-        .configurationDisplayName("ClaudeTap")
-        .description("See when Claude is working and get tapped when done.")
+        .configurationDisplayName("Cued")
+        .description("See when your coding agent is working and get tapped when it's done.")
         .supportedFamilies([.accessoryCircular, .accessoryCorner, .accessoryInline])
     }
 }
