@@ -49,10 +49,12 @@
             min-height: 100dvh;
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
             background: var(--bg);
+            display: flex;
+            flex-direction: column;
         }
 
-        /* Top nav — brand pinned to viewport top-left */
-        nav.top { padding: 0; margin: 0; }
+        /* Top nav — brand pinned to viewport top-left; nav reserves breathing room */
+        nav.top { height: 72px; }
         .brand {
             position: fixed;
             top: 20px;
@@ -88,6 +90,7 @@
         }
         /* Hero */
         .hero {
+            width: 100%;
             max-width: 1100px;
             margin: 0 auto;
             padding: 56px 28px 96px;
@@ -95,7 +98,7 @@
             grid-template-columns: 1.05fr 0.95fr;
             gap: 56px;
             align-items: center;
-            min-height: calc(100dvh - 200px);
+            flex: 1;
         }
         @media (max-width: 860px) {
             .hero {
