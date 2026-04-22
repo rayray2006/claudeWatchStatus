@@ -64,7 +64,7 @@ struct StatusView: View {
     private var statusColor: Color {
         switch store.currentState {
         case .idle: return .gray
-        case .thinking: return .purple
+        case .thinking: return .indigo
         case .working: return .orange
         case .done: return .green
         case .needsApproval: return .blue

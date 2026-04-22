@@ -43,9 +43,7 @@ targets:
       - path: ClaudeTapWatch
       - path: ClaudeTapWatch/Assets.xcassets
       - path: Shared
-      - path: ClaudeTapComplication/ClaudeCharacter.swift
     dependencies:
-      - target: ClaudeTapComplication
       - target: ClaudeTapNotificationService
     info:
       path: ClaudeTapWatch/Info.plist
@@ -60,23 +58,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp
         CODE_SIGN_ENTITLEMENTS: ClaudeTapWatch/ClaudeTapWatch.entitlements
-
-  ClaudeTapComplication:
-    type: app-extension
-    platform: watchOS
-    sources:
-      - path: ClaudeTapComplication
-      - path: Shared
-      - path: ClaudeTapWatch/Assets.xcassets
-    info:
-      path: ClaudeTapComplication/Info.plist
-      properties:
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.widgetkit-extension
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp.widget
-        CODE_SIGN_ENTITLEMENTS: ClaudeTapComplication/ClaudeTapComplication.entitlements
 
   ClaudeTapNotificationService:
     type: app-extension
@@ -102,7 +83,6 @@ schemes:
       targets:
         ClaudeTap: all
         ClaudeTapWatch: all
-        ClaudeTapComplication: all
         ClaudeTapNotificationService: all
     run:
       config: Debug
