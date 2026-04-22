@@ -695,7 +695,13 @@
       }]
     }],
     "Notification": [{
-      "matcher": "*",
+      "matcher": "permission_prompt",
+      "hooks": [{
+        "type": "command",
+        "command": "${curlLine(key, url, 'approval')}"
+      }]
+    }, {
+      "matcher": "elicitation_dialog",
       "hooks": [{
         "type": "command",
         "command": "${curlLine(key, url, 'approval')}"
@@ -755,7 +761,7 @@ Detect which coding-agent CLI you are (Claude Code, Codex, Gemini CLI, aider, et
     curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"approval"}' ${url} >/dev/null 2>&1 &
 
 Reference for where to put the hooks:
-  - Claude Code: ~/.claude/settings.json — under "hooks", each event (PreToolUse, Stop, Notification) is an array of { matcher: "*", hooks: [{ type: "command", command: "..." }] } entries (matcher-nested format is required; the flat format silently no-ops)
+  - Claude Code: ~/.claude/settings.json — under "hooks", each event (UserPromptSubmit, PreToolUse, Stop) takes matcher "*"; Notification must use matcher "permission_prompt" (and optionally "elicitation_dialog") — using "*" for Notification will fire approval pings on every idle reminder too. Matcher-nested format is required; the flat format silently no-ops.
   - Codex CLI:   add [features] codex_hooks = true to ~/.codex/config.toml, then write ~/.codex/hooks.json with keys PreToolUse / PermissionRequest / Stop (each entry uses { matcher, hooks: [{ type: "command", command: ... }] })
   - Gemini CLI:  ~/.gemini/settings.json hooks block — keys BeforeTool, AfterAgent, Notification (matcher "ToolPermission")
 
