@@ -3,11 +3,12 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { devices } from '../db/schema.js'
 import { requireApiKey } from '../middleware/apiKeyAuth.js'
-import { isPermanentFailure, sendPush, type Status } from '../apns/push.js'
+import { isPermanentFailure, sendPush, type InterruptionLevel, type Status } from '../apns/push.js'
 
 export const pushRoutes = new Hono()
 
 const VALID_STATES: ReadonlySet<Status> = new Set(['idle', 'thinking', 'working', 'done', 'approval'])
+const VALID_LEVELS: ReadonlySet<InterruptionLevel> = new Set(['passive', 'active', 'time-sensitive', 'critical'])
 
 /**
  * POST /v1/push — the Mac Claude Code hook hits this with an API key and a
@@ -17,7 +18,7 @@ const VALID_STATES: ReadonlySet<Status> = new Set(['idle', 'thinking', 'working'
 pushRoutes.post('/', requireApiKey, async (c) => {
     const deviceId = c.get('apiKeyDeviceId')
 
-    let body: { status?: string }
+    let body: { status?: string; level?: string }
     try {
         body = await c.req.json()
     } catch {
@@ -27,6 +28,14 @@ pushRoutes.post('/', requireApiKey, async (c) => {
     const status = body.status as Status
     if (!VALID_STATES.has(status)) {
         return c.json({ error: 'invalid_status' }, 400)
+    }
+
+    let level: InterruptionLevel | undefined
+    if (body.level) {
+        if (!VALID_LEVELS.has(body.level as InterruptionLevel)) {
+            return c.json({ error: 'invalid_level' }, 400)
+        }
+        level = body.level as InterruptionLevel
     }
 
     const rows = await db
@@ -49,6 +58,7 @@ pushRoutes.post('/', requireApiKey, async (c) => {
     let result = await sendPush(
         { token: device.apnsToken, bundleId: device.bundleId, environment: env },
         status,
+        level,
     )
 
     if (!result.ok && !isPermanentFailure(result)) {
@@ -57,6 +67,7 @@ pushRoutes.post('/', requireApiKey, async (c) => {
         result = await sendPush(
             { token: device.apnsToken, bundleId: device.bundleId, environment: env },
             status,
+            level,
         )
     }
 

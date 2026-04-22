@@ -3,6 +3,7 @@ import { connect, type ClientHttp2Session } from 'node:http2'
 import { getApnsJwt } from './jwt.js'
 
 export type Status = 'idle' | 'thinking' | 'working' | 'done' | 'approval'
+export type InterruptionLevel = 'passive' | 'active' | 'time-sensitive' | 'critical'
 
 export interface PushResult {
     ok: boolean
@@ -24,8 +25,10 @@ function endpoint(env: 'sandbox' | 'production'): string {
         : 'https://api.sandbox.push.apple.com:443'
 }
 
-function buildPayload(status: Status) {
-    const loud = ATTENTION.has(status)
+function buildPayload(status: Status, levelOverride?: InterruptionLevel) {
+    const defaultLoud = ATTENTION.has(status)
+    const level: InterruptionLevel = levelOverride ?? (defaultLoud ? 'active' : 'passive')
+    const loud = level === 'active' || level === 'time-sensitive' || level === 'critical'
     const body =
         status === 'approval' ? 'Approval' :
         status === 'done'     ? 'Done' :
@@ -36,7 +39,7 @@ function buildPayload(status: Status) {
         alert: { body },
         'content-available': 1,
         'mutable-content': 1,
-        'interruption-level': loud ? 'active' : 'passive',
+        'interruption-level': level,
     }
     if (loud) aps.sound = 'default'
 
@@ -65,9 +68,10 @@ function getSession(url: string): ClientHttp2Session {
 export async function sendPush(
     target: PushTarget,
     status: Status,
+    levelOverride?: InterruptionLevel,
 ): Promise<PushResult> {
     const jwt = await getApnsJwt()
-    const { loud, payload } = buildPayload(status)
+    const { loud, payload } = buildPayload(status, levelOverride)
     const url = endpoint(target.environment)
 
     return new Promise<PushResult>((resolve) => {
