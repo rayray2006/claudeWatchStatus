@@ -75,23 +75,23 @@
                 gap: 64px;
                 align-items: start;
             }
-            .brand { margin-bottom: 28px; }
         }
         @media (max-width: 480px) {
             main { padding: 40px 20px 32px; }
         }
 
-        /* Brand (now a link) */
+        /* Brand — fixed to viewport top-left */
         a.brand {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 44px;
             text-decoration: none;
             color: inherit;
-            width: fit-content;
             padding: 4px 6px 4px 4px;
-            margin-left: -6px;
             border-radius: 10px;
             transition: background 160ms;
         }
@@ -164,6 +164,7 @@
             text-align: center;
             text-transform: uppercase;
             outline: none;
+            caret-color: transparent;
             transition: border-color 200ms, background 200ms, box-shadow 200ms, color 200ms;
         }
         input.code::placeholder { color: var(--ink-faint); letter-spacing: 0.32em; }
