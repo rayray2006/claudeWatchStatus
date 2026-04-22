@@ -261,7 +261,7 @@
     <header class="hero">
         <div>
             <h1>A tap on your wrist when <span class="accent">your agent is ready</span>.</h1>
-            <p class="lede">Cued listens for lifecycle hooks from your coding agent and taps your Apple Watch the moment it finishes a task or asks for input.</p>
+            <p class="lede">Cued watches your coding agent's lifecycle hooks and taps your Apple Watch the moment it finishes, needs your approval, or starts thinking on a new prompt.</p>
             <div class="actions">
                 <a class="btn btn-primary" href="/p">Pair your watch →</a>
             </div>
@@ -270,14 +270,14 @@
             <div class="watch">
                 <div class="watch-screen">
                     <div class="watch-art">
-                        <img src="/img/idle.png"     alt="" class="on">
-                        <img src="/img/working.png"  alt="">
+                        <img src="/img/idle.png"     alt="">
+                        <img src="/img/working.png"  alt="" class="on">
                         <img src="/img/approval.png" alt="">
                         <img src="/img/done.png"     alt="">
                     </div>
                     <div class="watch-labels">
-                        <span class="lbl state-idle on">Idle</span>
-                        <span class="lbl state-working">Working…</span>
+                        <span class="lbl state-idle">Idle</span>
+                        <span class="lbl state-working on">Working…</span>
                         <span class="lbl state-approval">Needs you</span>
                         <span class="lbl state-done">Done</span>
                     </div>
@@ -293,7 +293,9 @@
     <script>
         const imgs = Array.from(document.querySelectorAll('.watch-art img'))
         const lbls = Array.from(document.querySelectorAll('.watch-labels .lbl'))
-        let i = 0
+        // Index of whichever sprite has the `on` class at page load.
+        let i = imgs.findIndex((el) => el.classList.contains('on'))
+        if (i < 0) i = 0
         setInterval(() => {
             imgs[i].classList.remove('on')
             lbls[i].classList.remove('on')
