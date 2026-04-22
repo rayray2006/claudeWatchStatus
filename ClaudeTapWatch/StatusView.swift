@@ -1,6 +1,5 @@
 import SwiftUI
 import WatchKit
-import WidgetKit
 
 struct StatusView: View {
     @StateObject private var store = StateStore.shared

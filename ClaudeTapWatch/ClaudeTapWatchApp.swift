@@ -1,7 +1,6 @@
 import SwiftUI
 import UserNotifications
 import WatchKit
-import WidgetKit
 
 @main
 struct ClaudeTapWatchApp: App {

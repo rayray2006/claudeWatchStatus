@@ -1,5 +1,4 @@
 import UserNotifications
-import WidgetKit
 
 /// Runs in a tiny separate process every time an APNs push with
 /// `mutable-content: 1` arrives — even when the main watch app is suspended
@@ -28,22 +27,9 @@ final class NotificationService: UNNotificationServiceExtension {
 
         // 1. Cache update (always).
         if let raw, let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID) {
-            // Compare incoming push to the last cached value. This is the
-            // only honest signal of "state changed" — markers we update on
-            // request can desync if the system defers our reload.
-            let cached = defaults.string(forKey: ClaudeTapConstants.Defaults.stateKey)
             defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
             defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
-            // Force-flush so the widget process sees the new value before we
-            // ask the system to re-render. Cross-process UserDefaults isn't
-            // guaranteed to sync in time otherwise.
-            defaults.synchronize()
-            if cached != raw {
-                WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.circular)
-                print("NSE_RELOAD \(raw) (was \(cached ?? "nil"))")
-            } else {
-                print("NSE_SKIP \(raw) (unchanged)")
-            }
+            print("NSE_WROTE \(raw)")
         }
 
         // 2. Shape the notification for display.

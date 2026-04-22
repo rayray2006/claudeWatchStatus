@@ -1,6 +1,5 @@
 import Foundation
 import UserNotifications
-import WidgetKit
 
 /// Watch-side SwiftUI state holder for the current Claude Code status.
 ///
@@ -121,7 +120,6 @@ final class StateStore: ObservableObject {
             persist(targetState, at: targetDate)
         } else {
             currentState = targetState
-            WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.circular)
         }
         try? await Task.sleep(for: postCommitDelay)
         isSyncing = false
@@ -137,21 +135,11 @@ final class StateStore: ObservableObject {
 
     private func persist(_ state: TapState, at date: Date) {
         print("PERSIST \(state.rawValue)@\(date.timeIntervalSince1970)")
-        let stateChanged = state != currentState
-        // If the cache already has this state, the NSE already reloaded the
-        // widget for the push that triggered this persist — our reload would
-        // be a duplicate that burns an extra budget slot for nothing.
-        let cacheAlreadyHasIt = UserDefaults(suiteName: appGroup)?
-            .string(forKey: stateKey) == state.rawValue
         if let defaults = UserDefaults(suiteName: appGroup) {
             defaults.set(state.rawValue, forKey: stateKey)
             defaults.set(date.timeIntervalSince1970, forKey: stateTimeKey)
-            defaults.synchronize()
         }
         currentState = state
-        if stateChanged && !cacheAlreadyHasIt {
-            WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.circular)
-        }
         scheduleStaleRevert()
     }
 
