@@ -65,15 +65,36 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
             // Play the user's chosen haptic for this state (if any).
             Task { await HapticPrefs.shared.choice(for: state).play() }
         }
+        // Heartbeat: keep the app warm enough for the next push to wake us
+        // and fire its haptic. Without this the app gets deep-suspended after
+        // a few minutes of inactivity and subsequent pushes silently land in
+        // Notification Center without firing didReceiveRemoteNotification.
+        Self.scheduleWarmKeepAlive()
         return .newData
     }
 
     func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
-        // We no longer schedule background refreshes for push reloads (the
-        // NSE handles that). Any backgroundTasks we receive here are system-
-        // initiated; just mark them done.
+        // The heartbeat fires here. Re-schedule one more so the warm window
+        // keeps rolling, then complete. The system rate-limits us regardless,
+        // so this won't pin the app awake — it just nudges priority up.
+        Self.scheduleWarmKeepAlive()
         for task in backgroundTasks {
             task.setTaskCompletedWithSnapshot(false)
+        }
+    }
+
+    /// Schedules a low-priority background refresh ~60s from now. Each call
+    /// queues an additional task; the system coalesces / throttles aggressive
+    /// callers. Used as an OS-priority signal so the app isn't deep-suspended
+    /// between pushes.
+    private static func scheduleWarmKeepAlive() {
+        WKExtension.shared().scheduleBackgroundRefresh(
+            withPreferredDate: Date().addingTimeInterval(60),
+            userInfo: nil
+        ) { error in
+            if let error {
+                print("KEEPALIVE_SCHED_FAIL \(error.localizedDescription)")
+            }
         }
     }
 }
