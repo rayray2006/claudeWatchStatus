@@ -286,6 +286,42 @@
             color: var(--ink);
         }
 
+        /* Pane-level lede + legend */
+        p.lede {
+            font-size: 14.5px;
+            color: var(--ink-dim);
+            margin: 0 0 14px;
+            line-height: 1.55;
+        }
+        ul.behavior {
+            list-style: none;
+            padding: 0;
+            margin: 16px 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        ul.behavior li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--ink-muted);
+        }
+        ul.behavior li em {
+            color: var(--ink-dim);
+            font-style: normal;
+        }
+        ul.behavior .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex: 0 0 7px;
+        }
+        .dot-w { background: var(--ink-faint); }
+        .dot-d { background: var(--ok); }
+        .dot-a { background: var(--claude); }
+
         .step {
             font-size: 12.5px;
             font-weight: 500;
@@ -429,36 +465,56 @@
             </div>
 
             <div class="tabs" role="tablist">
-                <button id="tab-claude" class="active" role="tab">Claude Code</button>
-                <button id="tab-codex"             role="tab">Codex</button>
-                <button id="tab-gemini"            role="tab">Gemini</button>
+                <button id="tab-agent"  class="active" role="tab">Agent</button>
+                <button id="tab-claude"             role="tab">Claude</button>
+                <button id="tab-codex"              role="tab">Codex</button>
+                <button id="tab-gemini"             role="tab">Gemini</button>
             </div>
 
-            <div id="pane-claude">
-                <div class="step"><span class="bubble">1</span>Merge into <span class="kbd">~/.claude/settings.json</span></div>
+            <div id="pane-agent">
+                <p class="lede">Easiest. Open any coding agent (Claude, Codex, Gemini, aider…), paste the prompt, let it edit your config.</p>
+                <div class="snippet-wrap">
+                    <pre class="snippet"><code id="agent-prompt" class="agent"></code></pre>
+                    <button class="copy-btn" data-copy="agent-prompt">Copy</button>
+                </div>
+            </div>
+
+            <div id="pane-claude" style="display: none;">
+                <p class="lede">Drop the snippet into <span class="kbd">~/.claude/settings.json</span>. If a <span class="kbd">hooks</span> block already exists, merge the three keys into it.</p>
                 <div class="snippet-wrap">
                     <pre class="snippet"><code id="claude-snippet"></code></pre>
                     <button class="copy-btn" data-copy="claude-snippet">Copy</button>
                 </div>
-                <p class="note">Add to the <span class="kbd">hooks</span> block (create one if missing).</p>
+                <ul class="behavior">
+                    <li><span class="dot dot-w"></span><span class="kbd">PreToolUse</span> &nbsp;→ silent <em>working</em> update</li>
+                    <li><span class="dot dot-d"></span><span class="kbd">Stop</span> &nbsp;→ wrist tap when Claude finishes</li>
+                    <li><span class="dot dot-a"></span><span class="kbd">Notification</span> &nbsp;→ wrist tap when Claude waits on you</li>
+                </ul>
             </div>
 
             <div id="pane-codex" style="display: none;">
-                <div class="step"><span class="bubble">1</span>Add to <span class="kbd">~/.codex/config.toml</span></div>
+                <p class="lede">Add this line to <span class="kbd">~/.codex/config.toml</span> (create the file if it doesn't exist).</p>
                 <div class="snippet-wrap">
                     <pre class="snippet"><code id="codex-snippet"></code></pre>
                     <button class="copy-btn" data-copy="codex-snippet">Copy</button>
                 </div>
-                <p class="note">Codex CLI's stable <span class="kbd">notify</span> hook fires on turn-end, so you'll get the <em>done</em> tap. <em>Working</em> and <em>approval</em> need experimental hooks — enable with <span class="kbd">codex --enable codex_hooks</span> and use the Claude Code JSON in <span class="kbd">~/.codex/hooks.json</span>.</p>
+                <ul class="behavior">
+                    <li><span class="dot dot-d"></span><span class="kbd">notify</span> &nbsp;→ wrist tap when Codex finishes a turn</li>
+                </ul>
+                <p class="note">Codex's stable hook only fires on turn-end, so this covers <em>done</em>. To also get <em>working</em> and <em>approval</em>, enable the experimental hook engine with <span class="kbd">codex --enable codex_hooks</span> and drop the Claude snippet into <span class="kbd">~/.codex/hooks.json</span>.</p>
             </div>
 
             <div id="pane-gemini" style="display: none;">
-                <div class="step"><span class="bubble">1</span>Merge into <span class="kbd">~/.gemini/settings.json</span></div>
+                <p class="lede">Drop the snippet into <span class="kbd">~/.gemini/settings.json</span>. Merge into an existing <span class="kbd">hooks</span> block if present.</p>
                 <div class="snippet-wrap">
                     <pre class="snippet"><code id="gemini-snippet"></code></pre>
                     <button class="copy-btn" data-copy="gemini-snippet">Copy</button>
                 </div>
-                <p class="note">Gemini CLI uses <span class="kbd">BeforeTool</span> / <span class="kbd">AfterAgent</span> / <span class="kbd">Notification</span> events. Merge into existing <span class="kbd">hooks</span> if present.</p>
+                <ul class="behavior">
+                    <li><span class="dot dot-w"></span><span class="kbd">BeforeTool</span> &nbsp;→ silent <em>working</em> update</li>
+                    <li><span class="dot dot-d"></span><span class="kbd">AfterAgent</span> &nbsp;→ wrist tap when Gemini finishes</li>
+                    <li><span class="dot dot-a"></span><span class="kbd">Notification</span> &nbsp;→ wrist tap when Gemini asks permission</li>
+                </ul>
             </div>
         </section>
     </main>
@@ -477,9 +533,11 @@
         const $stageDone = $('stage-done')
         const $agentPrompt = $('agent-prompt')
         const $manualSnippet = $('manual-snippet')
+        const $tabAgent = $('tab-agent')
         const $tabClaude = $('tab-claude')
         const $tabCodex = $('tab-codex')
         const $tabGemini = $('tab-gemini')
+        const $paneAgent = $('pane-agent')
         const $paneClaude = $('pane-claude')
         const $paneCodex = $('pane-codex')
         const $paneGemini = $('pane-gemini')
@@ -520,6 +578,28 @@
             // dropped into $0.
             const cmd = `curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{\\"status\\":\\"done\\"}' ${url} >/dev/null 2>&1`
             return `notify = ["sh", "-c", "${cmd}"]`
+        }
+
+        function agentPrompt(key, url) {
+            return `Set up Cued wrist notifications on this machine.
+
+Detect which coding-agent CLI you are (Claude Code, Codex, Gemini CLI, aider, etc.) and edit its config to fire these three curl commands at the right lifecycle moments. Merge into existing hooks; never overwrite.
+
+  WORKING — when you start running a tool / shell command:
+    curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"working"}' ${url} >/dev/null 2>&1 &
+
+  DONE — when you finish a turn / become idle:
+    curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"done"}' ${url} >/dev/null 2>&1 &
+
+  APPROVAL — when you're waiting on the user (permission prompt, plan review, anything blocking):
+    curl -sS -H 'Authorization: Bearer ${key}' -H 'content-type: application/json' -d '{"status":"approval"}' ${url} >/dev/null 2>&1 &
+
+Reference for where to put the hooks:
+  - Claude Code: ~/.claude/settings.json hooks block — keys PreToolUse, Stop, Notification
+  - Codex CLI:   ~/.codex/config.toml notify line for done; experimental ~/.codex/hooks.json (codex --enable codex_hooks) for full coverage
+  - Gemini CLI:  ~/.gemini/settings.json hooks block — keys BeforeTool, AfterAgent, Notification (matcher "ToolPermission")
+
+Edit the right file, save, and tell me the path you wrote to.`
         }
 
         function geminiSnippet(key, url) {
@@ -565,6 +645,7 @@
                 }
                 const data = await res.json()
                 apiKey = data.key
+                document.getElementById('agent-prompt').textContent   = agentPrompt(data.key, data.pushUrl)
                 document.getElementById('claude-snippet').textContent = claudeSnippet(data.key, data.pushUrl)
                 document.getElementById('codex-snippet').textContent  = codexSnippet(data.key, data.pushUrl)
                 document.getElementById('gemini-snippet').textContent = geminiSnippet(data.key, data.pushUrl)
@@ -591,6 +672,7 @@
 
         function activateTab(tab) {
             const tabs = [
+                { btn: $tabAgent,  pane: $paneAgent },
                 { btn: $tabClaude, pane: $paneClaude },
                 { btn: $tabCodex,  pane: $paneCodex },
                 { btn: $tabGemini, pane: $paneGemini },
@@ -601,6 +683,7 @@
                 t.pane.style.display = on ? '' : 'none'
             }
         }
+        $tabAgent.addEventListener('click',  () => activateTab($tabAgent))
         $tabClaude.addEventListener('click', () => activateTab($tabClaude))
         $tabCodex.addEventListener('click',  () => activateTab($tabCodex))
         $tabGemini.addEventListener('click', () => activateTab($tabGemini))
