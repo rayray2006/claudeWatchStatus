@@ -111,6 +111,10 @@ final class StateStore: ObservableObject {
 
         print("SYNC target=\(targetState.rawValue) current=\(currentState.rawValue)")
 
+        // Aggressive: refresh the complication on every sync, even when state
+        // matches — covers cases where a stale timeline entry needs rebuilding.
+        WidgetCenter.shared.reloadAllTimelines()
+
         guard targetState != currentState else { return }
 
         isSyncing = true

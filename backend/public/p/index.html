@@ -312,6 +312,28 @@
 
         .tabs-wrap.hidden { display: none; }
 
+        /* Quiet-mode tip — shown after pairing */
+        .quiet-tip {
+            margin-top: 20px;
+            padding: 14px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--ink-muted);
+            font-size: 13.5px;
+            line-height: 1.55;
+        }
+        .quiet-tip.hidden { display: none; }
+        .quiet-tip-title {
+            font-weight: 600;
+            color: var(--ink);
+            font-size: 13px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .quiet-tip-body { margin: 0; }
+
         /* Tabs */
         .tabs {
             display: inline-flex;
@@ -601,6 +623,13 @@
                         </div>
                     </div>
                 </div>
+
+                <aside id="quiet-tip" class="quiet-tip hidden">
+                    <div class="quiet-tip-title">Quiet mode (optional)</div>
+                    <p class="quiet-tip-body">
+                        For a wrist tap with no banner: on your iPhone, open <span class="kbd">Watch app</span> → <span class="kbd">Notifications</span> → <span class="kbd">Cued</span> → <span class="kbd">Custom</span> → <span class="kbd">Notification Center</span>. The haptic still fires; the banner is suppressed.
+                    </p>
+                </aside>
             </section>
         </div>
     </main>
@@ -621,6 +650,7 @@
         const $pairedNote = $('paired-note')
         const $locked = $('locked-card')
         const $tabsWrap = $('tabs-wrap')
+        const $quietTip = $('quiet-tip')
         const $tabAgent = $('tab-agent')
         const $tabClaude = $('tab-claude')
         const $tabCodex = $('tab-codex')
@@ -794,6 +824,7 @@ Edit the right file, save, and tell me the path you wrote to.`
             $pairedNote.classList.remove('hidden')
             $locked.classList.add('hidden')
             $tabsWrap.classList.remove('hidden')
+            $quietTip.classList.remove('hidden')
         }
 
         function resetForm() {
@@ -807,6 +838,7 @@ Edit the right file, save, and tell me the path you wrote to.`
             $pairedNote.classList.add('hidden')
             $locked.classList.remove('hidden')
             $tabsWrap.classList.add('hidden')
+            $quietTip.classList.add('hidden')
             $code.focus()
         }
 
