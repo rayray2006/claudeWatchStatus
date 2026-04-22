@@ -80,20 +80,27 @@
             main { padding: 40px 20px 32px; }
         }
 
-        /* Brand — fixed to viewport top-left */
+        /* Brand — in-flow on mobile so it scrolls; pinned on desktop */
         a.brand {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 10;
             display: inline-flex;
             align-items: center;
             gap: 10px;
             text-decoration: none;
             color: inherit;
             padding: 4px 6px 4px 4px;
+            margin-bottom: 24px;
             border-radius: 10px;
             transition: background 160ms;
+            width: fit-content;
+        }
+        @media (min-width: 920px) {
+            a.brand {
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 10;
+                margin-bottom: 0;
+            }
         }
         a.brand:hover { background: var(--surface); }
         a.brand:focus-visible {
@@ -560,15 +567,6 @@
                     <span class="dot"></span>Paired. Grab your setup snippet.
                 </div>
 
-                <aside id="quiet-tip" class="quiet-tip">
-                    <div class="quiet-tip-title">
-                        <span class="quiet-tip-badge">Recommended</span>
-                        Hidden notifications
-                    </div>
-                    <p class="quiet-tip-body">
-                        For a wrist tap with no banner: on your iPhone, open <span class="kbd">Watch app</span> → <span class="kbd">Notifications</span> → <span class="kbd">Cued</span> → <span class="kbd">Notification Center</span>. The haptic still fires; the banner is suppressed.
-                    </p>
-                </aside>
             </section>
 
             <section class="setup-pane">
@@ -653,6 +651,16 @@
 
             </section>
         </div>
+
+        <aside id="quiet-tip" class="quiet-tip">
+            <div class="quiet-tip-title">
+                <span class="quiet-tip-badge">Recommended</span>
+                Hidden notifications
+            </div>
+            <p class="quiet-tip-body">
+                For a wrist tap with no banner: on your iPhone, open <span class="kbd">Watch app</span> → <span class="kbd">Notifications</span> → <span class="kbd">Cued</span> → <span class="kbd">Notification Center</span>. The haptic still fires; the banner is suppressed.
+            </p>
+        </aside>
     </main>
 
     <footer>

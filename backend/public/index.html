@@ -53,16 +53,27 @@
             flex-direction: column;
         }
 
-        /* Top nav — brand pinned to viewport top-left; nav reserves breathing room */
-        nav.top { height: 72px; }
+        /* Top nav — brand in-flow on mobile so it scrolls, pinned on desktop */
+        nav.top {
+            padding: 16px 22px;
+        }
         .brand {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 10;
             display: flex;
             align-items: center;
             gap: 10px;
+            width: fit-content;
+        }
+        @media (min-width: 920px) {
+            nav.top {
+                padding: 0;
+                height: 72px;
+            }
+            .brand {
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 10;
+            }
         }
         .mascot {
             width: 32px;
@@ -281,7 +292,7 @@
                         <span class="lbl state-idle">Idle</span>
                         <span class="lbl state-thinking">Thinking…</span>
                         <span class="lbl state-working on">Working…</span>
-                        <span class="lbl state-approval">Needs you</span>
+                        <span class="lbl state-approval">Needs approval</span>
                         <span class="lbl state-done">Done</span>
                     </div>
                 </div>
