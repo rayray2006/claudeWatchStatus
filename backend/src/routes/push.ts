@@ -3,7 +3,9 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { devices } from '../db/schema.js'
 import { requireApiKey } from '../middleware/apiKeyAuth.js'
-import { isPermanentFailure, sendPush, type InterruptionLevel, type Status } from '../apns/push.js'
+import { isPermanentFailure, sendComplicationPush, sendPush, type InterruptionLevel, type Status } from '../apns/push.js'
+
+const ATTENTION: ReadonlySet<Status> = new Set(['done', 'approval'])
 
 export const pushRoutes = new Hono()
 
@@ -42,6 +44,7 @@ pushRoutes.post('/', requireApiKey, async (c) => {
         .select({
             id: devices.id,
             apnsToken: devices.apnsToken,
+            complicationToken: devices.complicationToken,
             bundleId: devices.bundleId,
             environment: devices.environment,
         })
@@ -55,15 +58,45 @@ pushRoutes.post('/', requireApiKey, async (c) => {
     }
 
     const env = device.environment === 'production' ? 'production' : 'sandbox'
-    let result = await sendPush(
-        { token: device.apnsToken, bundleId: device.bundleId, environment: env },
-        status,
-        level,
-    )
+
+    // Routing decision:
+    //   - done/approval: send via the PushKit complication channel ONLY when
+    //     a complication token is registered. This wakes the watch app from
+    //     deep suspension so its haptic fires reliably. No regular alert
+    //     push — that would be a duplicate.
+    //   - All other states (or done/approval before complication is set up):
+    //     regular alert push so the NSE updates the cache.
+    const useComplication = ATTENTION.has(status) && !!device.complicationToken && !level
+    let result = useComplication
+        ? await sendComplicationPush(
+            { token: device.complicationToken!, bundleId: device.bundleId, environment: env },
+            status,
+        )
+        : await sendPush(
+            { token: device.apnsToken, bundleId: device.bundleId, environment: env },
+            status,
+            level,
+        )
 
     if (!result.ok && !isPermanentFailure(result)) {
         // One retry for transient errors.
         await new Promise((r) => setTimeout(r, 500))
+        result = useComplication
+            ? await sendComplicationPush(
+                { token: device.complicationToken!, bundleId: device.bundleId, environment: env },
+                status,
+            )
+            : await sendPush(
+                { token: device.apnsToken, bundleId: device.bundleId, environment: env },
+                status,
+                level,
+            )
+    }
+
+    // Fallback: complication push hit a permanent failure (often "no
+    // complication on active face"). Fall through to the regular alert path
+    // so the user still gets *something*. Don't loop again on regular failure.
+    if (useComplication && isPermanentFailure(result)) {
         result = await sendPush(
             { token: device.apnsToken, bundleId: device.bundleId, environment: env },
             status,

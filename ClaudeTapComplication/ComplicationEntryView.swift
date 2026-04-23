@@ -1,6 +1,11 @@
 import WidgetKit
 import SwiftUI
 
+/// Minimal complication. Display is intentionally tiny — its only job is to
+/// be present on the user's watch face so the app earns the privileged
+/// `PKPushType.complication` push wake budget. Tactical wakes (done /
+/// approval pushes) come via that PushKit channel, not this widget's
+/// timeline.
 struct ComplicationEntryView: View {
     let entry: ClaudeTapEntry
 
@@ -8,47 +13,45 @@ struct ComplicationEntryView: View {
 
     var body: some View {
         switch family {
+        case .accessoryInline:
+            inlineView
         case .accessoryRectangular:
             rectangularView
         default:
-            rectangularView
+            circularView
+        }
+    }
+
+    private var circularView: some View {
+        ZStack {
+            // Cued mascot square
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(red: 204/255, green: 120/255, blue: 92/255))
+            HStack(spacing: 4) {
+                eye()
+                eye()
+            }
         }
     }
 
     private var rectangularView: some View {
-        HStack(spacing: 12) {
-            ClaudeSpriteView(state: entry.state)
-                .frame(width: 64, height: 64)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.state.label)
-                    .font(.system(.headline, weight: .semibold))
-                    .foregroundStyle(stateColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                if entry.state.isActive {
-                    // `Text(_:style: .timer)` auto-updates at ~1Hz without
-                    // needing extra timeline reloads — SwiftUI renders the
-                    // ticking elapsed time natively on watchOS.
-                    Text(entry.stateStartedAt, style: .timer)
-                        .font(.system(.subheadline, design: .monospaced).weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                        .lineLimit(1)
-                }
-            }
+        HStack(spacing: 8) {
+            circularView
+                .frame(width: 22, height: 22)
+            Text("Cued")
+                .font(.system(.headline, weight: .semibold))
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var stateColor: Color {
-        switch entry.state {
-        case .idle:          return .gray
-        case .thinking:      return .indigo
-        case .working:       return .orange
-        case .done:          return .green
-        case .needsApproval: return .blue
-        }
+    private var inlineView: some View {
+        Text("Cued")
+    }
+
+    private func eye() -> some View {
+        Capsule()
+            .fill(Color.black)
+            .frame(width: 2, height: 5)
     }
 }
 
@@ -61,15 +64,17 @@ struct ClaudeTapWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: ClaudeTapComplicationProvider()) { entry in
             ComplicationEntryView(entry: entry)
-                // Modern widget API: closure-based container background.
-                // Using `.clear` directly (the old shape) silently makes the
-                // system treat the widget as empty in some watchOS versions.
                 .containerBackground(for: .widget) {
                     Color.black
                 }
         }
         .configurationDisplayName("Cued")
-        .description("See your coding agent's state — thinking, working, done, or waiting on you.")
-        .supportedFamilies([.accessoryRectangular])
+        .description("Add to your watch face for reliable wrist-tap delivery.")
+        .supportedFamilies([
+            .accessoryCircular,
+            .accessoryCorner,
+            .accessoryInline,
+            .accessoryRectangular,
+        ])
     }
 }

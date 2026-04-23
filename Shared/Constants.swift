@@ -12,6 +12,10 @@ enum ClaudeTapConstants {
         static let smartStack = "ClaudeTapStatus"
     }
 
+    /// Bundle topic used when sending PKPushType.complication pushes via APNs.
+    /// Convention: <main bundle id>.complication.
+    static let complicationApnsTopic = "com.fm.claudetap.watchapp.complication"
+
     static var sharedDefaults: UserDefaults? {
         UserDefaults(suiteName: appGroupID)
     }

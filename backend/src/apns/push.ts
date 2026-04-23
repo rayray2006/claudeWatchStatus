@@ -126,6 +126,81 @@ export async function sendPush(
 
         req.write(payload)
         req.end()
+        void loud
+    })
+}
+
+/// Send via the PushKit complication wake channel. Uses the device's
+/// `complicationToken` (separate from the regular APNs token) and the
+/// `<bundle>.complication` topic + `apns-push-type: complication` header.
+/// Wakes the watch app from deep suspension via PKPushRegistryDelegate
+/// (~50/day device-shared budget).
+export async function sendComplicationPush(
+    target: PushTarget,
+    status: Status,
+): Promise<PushResult> {
+    const jwt = await getApnsJwt()
+    // Body kept minimal — the complication push only carries `status` so the
+    // PKPushRegistryDelegate can update cache + play haptic.
+    const payload = JSON.stringify({
+        aps: { 'content-available': 1 },
+        status,
+        ts: Date.now(),
+    })
+    const url = endpoint(target.environment)
+    const topic = `${target.bundleId}.complication`
+
+    return new Promise<PushResult>((resolve) => {
+        let session: ClientHttp2Session
+        try {
+            session = getSession(url)
+        } catch (err) {
+            resolve({ ok: false, httpStatus: 0, reason: 'connect_error: ' + (err as Error).message })
+            return
+        }
+
+        const req = session.request({
+            ':method': 'POST',
+            ':path': `/3/device/${target.token}`,
+            authorization: `bearer ${jwt}`,
+            'apns-topic': topic,
+            'apns-push-type': 'complication',
+            'apns-priority': '10',
+            'apns-id': randomUUID(),
+            'content-type': 'application/json',
+        })
+
+        let status_ = 0
+        let body = ''
+        req.on('response', (headers) => {
+            status_ = Number(headers[':status'] ?? 0)
+        })
+        req.on('data', (c: Buffer) => { body += c.toString() })
+        req.on('end', () => {
+            if (status_ >= 200 && status_ < 300) {
+                resolve({ ok: true, httpStatus: status_ })
+                return
+            }
+            let reason: string | undefined
+            try {
+                const parsed = JSON.parse(body) as { reason?: string }
+                reason = parsed.reason
+            } catch {
+                /* ignore */
+            }
+            resolve({ ok: false, httpStatus: status_, reason })
+        })
+        req.on('error', (err) => {
+            resolve({ ok: false, httpStatus: 0, reason: 'request_error: ' + err.message })
+        })
+
+        req.setTimeout(10_000, () => {
+            req.close()
+            resolve({ ok: false, httpStatus: 0, reason: 'request_timeout' })
+        })
+
+        req.write(payload)
+        req.end()
     })
 }
 

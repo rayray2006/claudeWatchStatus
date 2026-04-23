@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { deviceRoutes } from './routes/device.js'
 import { pairRoutes } from './routes/pair.js'
 import { pushRoutes } from './routes/push.js'
 
@@ -8,6 +9,7 @@ app.get('/api/v1/health', (c) => c.json({ ok: true, service: 'nudge' }))
 
 app.route('/api/v1/pair', pairRoutes)
 app.route('/api/v1/push', pushRoutes)
+app.route('/api/v1/device', deviceRoutes)
 
 app.notFound((c) => {
     let path = '/'

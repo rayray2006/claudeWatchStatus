@@ -34,6 +34,8 @@ final class Pairing {
     private var pollTask: Task<Void, Never>?
 
     private static let pairedDefaultsKey = "cued.paired"
+    private static let pendingComplicationTokenKey = "cued.pendingComplicationToken"
+    private static let uploadedComplicationTokenKey = "cued.uploadedComplicationToken"
 
     private init() {
         let already = UserDefaults.standard.bool(forKey: Self.pairedDefaultsKey)
@@ -49,8 +51,46 @@ final class Pairing {
     /// Called from the APNs registration callback.
     func setAPNsToken(_ token: String) {
         apnsToken = token
+        // If a complication token came in before the APNs token, upload now.
+        if let pending = UserDefaults.standard.string(forKey: Self.pendingComplicationTokenKey) {
+            Task { await self.setComplicationToken(pending) }
+        }
         if case .paired = stage { return }
         Task { await beginPairing() }
+    }
+
+    /// Called when PushKit hands us the complication-channel token. Uploads
+    /// it to the backend so it can route done/approval pushes through the
+    /// privileged complication wake channel. Authenticated by APNs token
+    /// (which the device has natively, no API key handoff needed).
+    func setComplicationToken(_ token: String) async {
+        guard let apnsToken else {
+            // APNs token not yet known — defer the upload until it is.
+            UserDefaults.standard.set(token, forKey: Self.pendingComplicationTokenKey)
+            return
+        }
+        let last = UserDefaults.standard.string(forKey: Self.uploadedComplicationTokenKey)
+        if last == token { return }
+
+        var req = URLRequest(url: BackendConfig.baseURL.appendingPathComponent("/api/v1/device/complication-token"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "apnsToken": apnsToken,
+            "complicationToken": token,
+        ])
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                UserDefaults.standard.set(token, forKey: Self.uploadedComplicationTokenKey)
+                UserDefaults.standard.removeObject(forKey: Self.pendingComplicationTokenKey)
+                print("COMPLICATION_TOKEN_UPLOADED")
+            } else {
+                print("COMPLICATION_TOKEN_UPLOAD_FAIL status=\((response as? HTTPURLResponse)?.statusCode ?? 0)")
+            }
+        } catch {
+            print("COMPLICATION_TOKEN_UPLOAD_ERROR \(error.localizedDescription)")
+        }
     }
 
     /// Reset pairing (mostly for dev / debug).

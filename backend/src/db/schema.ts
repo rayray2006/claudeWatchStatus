@@ -11,6 +11,11 @@ import {
 export const devices = pgTable('devices', {
     id: uuid('id').primaryKey().defaultRandom(),
     apnsToken: text('apns_token').notNull().unique(),
+    /// Separate token from PKPushRegistry(.complication). When present,
+    /// done/approval pushes are routed via the PushKit complication channel
+    /// (apns-push-type: complication) which has a privileged ~50/day wake
+    /// budget and can wake the watch app from deep suspension.
+    complicationToken: text('complication_token'),
     bundleId: text('bundle_id').notNull(),
     environment: text('environment').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
