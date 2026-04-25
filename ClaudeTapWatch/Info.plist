@@ -20,20 +20,12 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>NSHealthShareUsageDescription</key>
-	<string>Cued runs a workout session in the background so wrist-tap notifications fire reliably even when the app is closed.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>Cued runs a workout session in the background so wrist-tap notifications fire reliably even when the app is closed.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
 	<key>WKApplication</key>
 	<true/>
 	<key>WKBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
-		<string>workout-processing</string>
+		<string>physical-therapy</string>
 	</array>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.fm.claudetap</string>

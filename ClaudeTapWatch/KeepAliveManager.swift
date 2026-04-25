@@ -1,29 +1,26 @@
 import Foundation
-import HealthKit
 import WatchKit
 
-/// Keeps the watch app process alive long-term using `HKWorkoutSession` with
-/// `HKWorkoutActivityType.other`. This is the only watchOS API that grants
-/// reliable indefinite background runtime to a non-fitness app — chained
-/// `WKExtendedRuntimeSession` instances were tried previously and proved
-/// fragile (sessions terminated early due to `.suppressedBySystem`,
-/// `willExpire` callback often skipped, no recovery from background).
+/// Keeps the watch app process alive via chained `WKExtendedRuntimeSession`
+/// instances using `.physicalTherapy` (1 hour per session, runs in
+/// background, no workout-style UI intrusion).
 ///
-/// Cost: while a session is active the watch face shows the green workout
-/// indicator, and battery drain is roughly 5-10× idle. The dominant cost is
-/// the workout subsystem keeping the heart-rate sensor warm — there's no
-/// API to disable that. We collect no samples (no `HKLiveWorkoutBuilder`,
-/// no HR queries) — the session exists purely for its side effect of
-/// keeping the app process resident so `didReceiveRemoteNotification` fires
-/// for every push.
+/// Trade-offs vs `HKWorkoutSession`-based keep-alive:
+///   - No green workout glyph on the watch face
+///   - No auto-launch on wrist-raise, no Always-On dim of our app
+///   - No HR sensor activation → noticeably less battery drain
+///   - But: sessions can terminate early if the OS feels pressure
+///     (`.suppressedBySystem`); chain pattern (start a new session in
+///     `willExpire`) is fragile and silently breaks if the OS skips
+///     `willExpire` on abrupt invalidation. Apple does not allow
+///     starting a session from a background callback (Code=3), so a
+///     broken chain stays broken until the user reopens the app.
 ///
-/// Battery-saving heuristic: auto-pause when the watch is plugged in. The
-/// user typically isn't expecting wrist taps overnight while charging, and
-/// charging is when the longest cumulative session-drain would otherwise
-/// land. End the session when battery state flips to `.charging`/`.full`,
-/// resume on `.unplugged`. Best-effort on resume — if the app process was
-/// fully suspended at unplug, the observer won't fire and resume happens on
-/// the next app open via `resumeIfEnabled`.
+/// Battery-saving heuristics on top of the chain:
+///   - Auto-pause when watch is on charger; resume on unplug.
+///   - Auto-end if no push or app activity for 30 minutes.
+///   - All restart paths flow through `resumeIfEnabled` (called from
+///     `applicationDidBecomeActive`) — no auto-restart loops.
 ///
 /// Off by default; user opts in via Settings.
 @MainActor
@@ -32,14 +29,12 @@ final class KeepAliveManager: NSObject, ObservableObject {
 
     @Published private(set) var isActive: Bool = false
 
-    private let healthStore = HKHealthStore()
-    private var session: HKWorkoutSession?
+    private var session: WKExtendedRuntimeSession?
     private var batteryObserver: NSObjectProtocol?
     private var idleTimer: Timer?
 
     /// End the session if there's no push or app activity for this long.
-    /// Saves battery during the user's natural idle windows (away from
-    /// keyboard, sleeping, between sessions). Re-arms on next app open.
+    /// Re-arms on next app open.
     private static let idleTimeout: TimeInterval = 30 * 60
 
     private static let preferenceKey = "cued.keepAliveEnabled"
@@ -63,47 +58,85 @@ final class KeepAliveManager: NSObject, ObservableObject {
         set {
             UserDefaults.standard.set(newValue, forKey: Self.preferenceKey)
             if newValue {
-                Task { await startSession() }
+                startNewSession()
             } else {
                 stop()
             }
         }
     }
 
-    /// Call from `applicationDidBecomeActive`. Workout sessions survive
-    /// indefinite background time, so a healthy session shouldn't ever need
-    /// restarting. But if the process was killed (OOM, force-quit, our
-    /// own auto-pause-on-charge fired earlier, or the idle timeout ended
-    /// the session), opening the app re-arms via this hook.
+    /// Call from `applicationDidBecomeActive`. If a session is already
+    /// running we just bump the idle timer; otherwise start a fresh one
+    /// (subject to on-charger guard).
     func resumeIfEnabled() {
         guard isEnabled else { return }
-        // Honor the on-charger auto-pause from this entry too.
         if isOnCharger {
             print("KEEPALIVE_SKIP_CHARGING")
             return
         }
-        if let s = session, s.state == .running || s.state == .prepared {
-            // Session already running — just bump the idle timer since the
-            // user opening the app counts as activity.
+        if let s = session, s.state == .running {
             scheduleIdleTimer()
             return
         }
-        Task { await startSession() }
+        startNewSession()
     }
 
     /// Reset the 30-minute idle timer. Called from every push handler and
-    /// from `applicationDidBecomeActive` so the session only ends after a
-    /// genuine quiet stretch with no app activity. No-op when no session
-    /// is running.
+    /// from `applicationDidBecomeActive`.
     func markActivity() {
         scheduleIdleTimer()
+    }
+
+    private var isOnCharger: Bool {
+        let state = WKInterfaceDevice.current().batteryState
+        return state == .charging || state == .full
+    }
+
+    private func handleBatteryStateChange() {
+        let state = WKInterfaceDevice.current().batteryState
+        switch state {
+        case .charging, .full:
+            if let s = session, s.state == .running {
+                print("KEEPALIVE_AUTO_PAUSE_CHARGING")
+                s.invalidate()
+            }
+        case .unplugged:
+            if isEnabled, session == nil {
+                print("KEEPALIVE_AUTO_RESUME_UNPLUG")
+                startNewSession()
+            }
+        case .unknown:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    private func startNewSession() {
+        if isOnCharger {
+            print("KEEPALIVE_SKIP_CHARGING")
+            return
+        }
+        let s = WKExtendedRuntimeSession()
+        s.delegate = self
+        s.start()
+        session = s
+        scheduleIdleTimer()
+        print("KEEPALIVE_START_REQUESTED physical-therapy")
+    }
+
+    private func stop() {
+        session?.invalidate()
+        idleTimer?.invalidate()
+        idleTimer = nil
+        isActive = false
+        print("KEEPALIVE_STOP_REQUESTED")
     }
 
     private func scheduleIdleTimer() {
         idleTimer?.invalidate()
         idleTimer = nil
-        guard isEnabled, let s = session,
-              s.state == .running || s.state == .prepared else { return }
+        guard isEnabled, let s = session, s.state == .running else { return }
         let t = Timer(timeInterval: Self.idleTimeout, repeats: false) { _ in
             Task { @MainActor in
                 Self.shared.handleIdleTimeout()
@@ -116,133 +149,59 @@ final class KeepAliveManager: NSObject, ObservableObject {
     private func handleIdleTimeout() {
         guard let s = session, s.state == .running else { return }
         print("KEEPALIVE_IDLE_TIMEOUT 30min — ending session")
-        s.end()
-    }
-
-    private var isOnCharger: Bool {
-        let state = WKInterfaceDevice.current().batteryState
-        return state == .charging || state == .full
-    }
-
-    private func handleBatteryStateChange() {
-        let state = WKInterfaceDevice.current().batteryState
-        switch state {
-        case .charging, .full:
-            if let s = session, s.state == .running || s.state == .prepared {
-                print("KEEPALIVE_AUTO_PAUSE_CHARGING")
-                s.end()
-            }
-        case .unplugged:
-            if isEnabled, session == nil {
-                print("KEEPALIVE_AUTO_RESUME_UNPLUG")
-                Task { await startSession() }
-            }
-        case .unknown:
-            break
-        @unknown default:
-            break
-        }
-    }
-
-    private func startSession() async {
-        guard HKHealthStore.isHealthDataAvailable() else {
-            print("KEEPALIVE_HEALTH_UNAVAILABLE")
-            return
-        }
-        // Defense-in-depth: still skip if charging at start time. The
-        // toggle-on path can race the battery observer.
-        if isOnCharger {
-            print("KEEPALIVE_SKIP_CHARGING")
-            return
-        }
-
-        // HKWorkoutSession requires share-authorization for HKWorkoutType
-        // even if we never actually save samples — the session implicitly
-        // creates a workout record at end. Read-set is empty; we're not
-        // collecting anything.
-        do {
-            try await healthStore.requestAuthorization(
-                toShare: [HKObjectType.workoutType()],
-                read: []
-            )
-        } catch {
-            print("KEEPALIVE_AUTH_ERROR \(error.localizedDescription)")
-            return
-        }
-
-        let config = HKWorkoutConfiguration()
-        config.activityType = .other
-        config.locationType = .indoor
-
-        do {
-            let s = try HKWorkoutSession(
-                healthStore: healthStore,
-                configuration: config
-            )
-            s.delegate = self
-            s.startActivity(with: Date())
-            session = s
-            // Schedule the initial idle window from session start; each
-            // arriving push will reset it via markActivity().
-            scheduleIdleTimer()
-            print("KEEPALIVE_START_REQUESTED workout-other")
-        } catch {
-            print("KEEPALIVE_START_ERROR \(error.localizedDescription)")
-            session = nil
-            isActive = false
-        }
-    }
-
-    private func stop() {
-        session?.end()
-        // Session reference is cleared on the .ended state-change callback;
-        // we don't nil it here to avoid racing with the delegate.
-        idleTimer?.invalidate()
-        idleTimer = nil
-        isActive = false
-        print("KEEPALIVE_STOP_REQUESTED")
+        s.invalidate()
     }
 }
 
-extension KeepAliveManager: HKWorkoutSessionDelegate {
-    nonisolated func workoutSession(
-        _ workoutSession: HKWorkoutSession,
-        didChangeTo toState: HKWorkoutSessionState,
-        from fromState: HKWorkoutSessionState,
-        date: Date
+extension KeepAliveManager: WKExtendedRuntimeSessionDelegate {
+    nonisolated func extendedRuntimeSessionDidStart(
+        _ extendedRuntimeSession: WKExtendedRuntimeSession
     ) {
-        let toRaw = toState.rawValue
-        let fromRaw = fromState.rawValue
+        let expirationDescription = extendedRuntimeSession.expirationDate?.description ?? "nil"
         Task { @MainActor in
-            print("KEEPALIVE_STATE from=\(fromRaw) to=\(toRaw)")
-            switch toState {
-            case .running:
-                self.isActive = true
-            case .ended, .stopped:
-                self.isActive = false
-                self.session = nil
-                self.idleTimer?.invalidate()
-                self.idleTimer = nil
-                // No auto-restart here. All restart paths flow through
-                // resumeIfEnabled() (called from applicationDidBecomeActive)
-                // or the unplug branch of handleBatteryStateChange. This
-                // keeps idle-timeout / on-charger / user-toggle ends from
-                // looping back into a fresh session unintentionally.
-            default:
-                break
-            }
+            print("KEEPALIVE_STARTED expires=\(expirationDescription)")
+            self.isActive = true
         }
     }
 
-    nonisolated func workoutSession(
-        _ workoutSession: HKWorkoutSession,
-        didFailWithError error: Error
+    nonisolated func extendedRuntimeSessionWillExpire(
+        _ extendedRuntimeSession: WKExtendedRuntimeSession
     ) {
-        let description = error.localizedDescription
+        // Chain a new session before this one expires. This callback runs
+        // while the current session is still active, so start() is allowed.
+        // Skip if user disabled or we're now on charger.
         Task { @MainActor in
-            print("KEEPALIVE_FAILED \(description)")
-            self.isActive = false
-            self.session = nil
+            print("KEEPALIVE_WILL_EXPIRE chaining")
+            guard self.isEnabled, !self.isOnCharger else { return }
+            self.idleTimer?.invalidate()
+            self.idleTimer = nil
+            let next = WKExtendedRuntimeSession()
+            next.delegate = self
+            next.start()
+            self.session = next
+            self.scheduleIdleTimer()
+        }
+    }
+
+    nonisolated func extendedRuntimeSession(
+        _ extendedRuntimeSession: WKExtendedRuntimeSession,
+        didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason,
+        error: Error?
+    ) {
+        let invalidatedId = ObjectIdentifier(extendedRuntimeSession)
+        let reasonRaw = reason.rawValue
+        let errorDescription = error?.localizedDescription ?? "nil"
+        Task { @MainActor in
+            print("KEEPALIVE_INVALIDATED reason=\(reasonRaw) error=\(errorDescription)")
+            if let current = self.session, ObjectIdentifier(current) == invalidatedId {
+                self.session = nil
+                self.isActive = false
+                self.idleTimer?.invalidate()
+                self.idleTimer = nil
+            }
+            // No auto-restart. All restart paths flow through
+            // resumeIfEnabled() (called from applicationDidBecomeActive)
+            // or the unplug branch of handleBatteryStateChange.
         }
     }
 }
