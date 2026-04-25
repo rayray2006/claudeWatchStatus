@@ -63,6 +63,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp
         CODE_SIGN_ENTITLEMENTS: ClaudeTapWatch/ClaudeTapWatch.entitlements
+        DEVELOPMENT_TEAM: NJ4Z2645XA
 
   ClaudeTapComplication:
     type: app-extension

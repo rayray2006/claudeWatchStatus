@@ -25,7 +25,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Reliability").textCase(nil)
                 } footer: {
-                    Text("Runs an indoor workout session in the background so wrist taps fire even when the app is closed. Watch face shows a green workout indicator while active. Higher battery use.")
+                    Text("Runs an indoor workout session in the background so wrist taps fire even when the app is closed. Watch face shows a green workout indicator while active. Auto-pauses while on charger; open the app to re-arm after unplugging.")
                         .font(.caption2)
                 }
 

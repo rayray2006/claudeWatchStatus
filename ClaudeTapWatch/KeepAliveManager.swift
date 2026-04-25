@@ -10,11 +10,20 @@ import WatchKit
 /// `willExpire` callback often skipped, no recovery from background).
 ///
 /// Cost: while a session is active the watch face shows the green workout
-/// indicator, and battery drain is roughly 5-10× idle. We collect no
-/// samples (no `HKLiveWorkoutBuilder`, no HR queries) — the session exists
-/// purely for its side effect of keeping the app process resident so
-/// `didReceiveRemoteNotification` fires for every push and our explicit
-/// `WKInterfaceDevice.play(_:)` runs.
+/// indicator, and battery drain is roughly 5-10× idle. The dominant cost is
+/// the workout subsystem keeping the heart-rate sensor warm — there's no
+/// API to disable that. We collect no samples (no `HKLiveWorkoutBuilder`,
+/// no HR queries) — the session exists purely for its side effect of
+/// keeping the app process resident so `didReceiveRemoteNotification` fires
+/// for every push.
+///
+/// Battery-saving heuristic: auto-pause when the watch is plugged in. The
+/// user typically isn't expecting wrist taps overnight while charging, and
+/// charging is when the longest cumulative session-drain would otherwise
+/// land. End the session when battery state flips to `.charging`/`.full`,
+/// resume on `.unplugged`. Best-effort on resume — if the app process was
+/// fully suspended at unplug, the observer won't fire and resume happens on
+/// the next app open via `resumeIfEnabled`.
 ///
 /// Off by default; user opts in via Settings.
 @MainActor
@@ -25,8 +34,23 @@ final class KeepAliveManager: NSObject, ObservableObject {
 
     private let healthStore = HKHealthStore()
     private var session: HKWorkoutSession?
+    private var batteryObserver: NSObjectProtocol?
 
     private static let preferenceKey = "cued.keepAliveEnabled"
+
+    private override init() {
+        super.init()
+        WKInterfaceDevice.current().isBatteryMonitoringEnabled = true
+        batteryObserver = NotificationCenter.default.addObserver(
+            forName: WKInterfaceDevice.batteryStateDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                Self.shared.handleBatteryStateChange()
+            }
+        }
+    }
 
     var isEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: Self.preferenceKey) }
@@ -42,19 +66,56 @@ final class KeepAliveManager: NSObject, ObservableObject {
 
     /// Call from `applicationDidBecomeActive`. Workout sessions survive
     /// indefinite background time, so a healthy session shouldn't ever need
-    /// restarting. But if the process was killed (OOM, force-quit) the
-    /// session ends with it; opening the app re-arms via this hook.
+    /// restarting. But if the process was killed (OOM, force-quit, or our
+    /// own auto-pause-on-charge fired earlier and the app then got
+    /// suspended) opening the app re-arms via this hook.
     func resumeIfEnabled() {
         guard isEnabled else { return }
+        // Honor the on-charger auto-pause from this entry too.
+        if isOnCharger {
+            print("KEEPALIVE_SKIP_CHARGING")
+            return
+        }
         if let s = session, s.state == .running || s.state == .prepared {
             return
         }
         Task { await startSession() }
     }
 
+    private var isOnCharger: Bool {
+        let state = WKInterfaceDevice.current().batteryState
+        return state == .charging || state == .full
+    }
+
+    private func handleBatteryStateChange() {
+        let state = WKInterfaceDevice.current().batteryState
+        switch state {
+        case .charging, .full:
+            if let s = session, s.state == .running || s.state == .prepared {
+                print("KEEPALIVE_AUTO_PAUSE_CHARGING")
+                s.end()
+            }
+        case .unplugged:
+            if isEnabled, session == nil {
+                print("KEEPALIVE_AUTO_RESUME_UNPLUG")
+                Task { await startSession() }
+            }
+        case .unknown:
+            break
+        @unknown default:
+            break
+        }
+    }
+
     private func startSession() async {
         guard HKHealthStore.isHealthDataAvailable() else {
             print("KEEPALIVE_HEALTH_UNAVAILABLE")
+            return
+        }
+        // Defense-in-depth: still skip if charging at start time. The
+        // toggle-on path can race the battery observer.
+        if isOnCharger {
+            print("KEEPALIVE_SKIP_CHARGING")
             return
         }
 
@@ -118,10 +179,11 @@ extension KeepAliveManager: HKWorkoutSessionDelegate {
             case .ended, .stopped:
                 self.isActive = false
                 self.session = nil
-                // If still enabled (e.g., session was ended by something
-                // other than the user — system kill, conflicting workout)
-                // and we're foreground, attempt restart.
-                if self.isEnabled {
+                // If still enabled and we're not in the auto-pause case,
+                // attempt restart. The on-charger guard inside startSession
+                // prevents an infinite loop when we ended *because* of
+                // charging.
+                if self.isEnabled, !self.isOnCharger {
                     Task { await self.startSession() }
                 }
             default:
