@@ -25,7 +25,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Reliability").textCase(nil)
                 } footer: {
-                    Text("Keeps the app running in the background so wrist taps fire even when closed. Sessions run up to 1 hour and chain seamlessly when active. Auto-pauses while on charger and after 30 minutes of no activity; open the app to re-arm.")
+                    Text("Keeps the app running in the background so wrist taps fire even when closed. Sessions run up to 1 hour and chain seamlessly. Auto-ends after 30 minutes of no activity; open the app to re-arm.")
                         .font(.caption2)
                 }
 
