@@ -47,6 +47,7 @@ pushRoutes.post('/', requireApiKey, async (c) => {
             complicationToken: devices.complicationToken,
             bundleId: devices.bundleId,
             environment: devices.environment,
+            lastPushedAt: devices.lastPushedAt,
         })
         .from(devices)
         .where(and(eq(devices.id, deviceId), eq(devices.isActive, true)))
@@ -59,44 +60,25 @@ pushRoutes.post('/', requireApiKey, async (c) => {
 
     const env = device.environment === 'production' ? 'production' : 'sandbox'
 
-    // Routing decision:
-    //   - done/approval: send via the PushKit complication channel ONLY when
-    //     a complication token is registered. This wakes the watch app from
-    //     deep suspension so its haptic fires reliably. No regular alert
-    //     push — that would be a duplicate.
-    //   - All other states (or done/approval before complication is set up):
-    //     regular alert push so the NSE updates the cache.
-    const useComplication = ATTENTION.has(status) && !!device.complicationToken && !level
-    let result = useComplication
-        ? await sendComplicationPush(
-            { token: device.complicationToken!, bundleId: device.bundleId, environment: env },
-            status,
-        )
-        : await sendPush(
-            { token: device.apnsToken, bundleId: device.bundleId, environment: env },
-            status,
-            level,
-        )
+    // Routing for done/approval:
+    //   1. Always send the regular alert push (NSE updates cache; system plays
+    //      haptic when the watch is in a state to receive it; gives us a
+    //      visible Notification Center entry).
+    //   2. If the device has registered a PushKit complication token, ALSO
+    //      send a complication wake push. This wakes the app from deep
+    //      suspension via PKPushRegistry so the handler runs (and as a
+    //      backstop the handler plays the user's chosen haptic, debounced
+    //      against the regular push that just landed).
+    // For idle/thinking/working: regular alert only — silent, just for cache.
+    let result = await sendPush(
+        { token: device.apnsToken, bundleId: device.bundleId, environment: env },
+        status,
+        level,
+    )
 
     if (!result.ok && !isPermanentFailure(result)) {
         // One retry for transient errors.
         await new Promise((r) => setTimeout(r, 500))
-        result = useComplication
-            ? await sendComplicationPush(
-                { token: device.complicationToken!, bundleId: device.bundleId, environment: env },
-                status,
-            )
-            : await sendPush(
-                { token: device.apnsToken, bundleId: device.bundleId, environment: env },
-                status,
-                level,
-            )
-    }
-
-    // Fallback: complication push hit a permanent failure (often "no
-    // complication on active face"). Fall through to the regular alert path
-    // so the user still gets *something*. Don't loop again on regular failure.
-    if (useComplication && isPermanentFailure(result)) {
         result = await sendPush(
             { token: device.apnsToken, bundleId: device.bundleId, environment: env },
             status,
@@ -104,13 +86,44 @@ pushRoutes.post('/', requireApiKey, async (c) => {
         )
     }
 
+    // PushKit complication wake — only spend a wake when the app is *likely*
+    // deep-suspended. Heuristic: if the previous push happened within the
+    // last 60s, the app is almost certainly still warm enough that
+    // didReceiveRemoteNotification will fire on the regular alert path and
+    // play the haptic — no wake needed. Outside that window, deep suspension
+    // is plausible, so spend the wake to wake the app's PKPushRegistry
+    // delegate. APNs returns 200 even when the watch can't deliver (no
+    // complication on face), so we fire-and-forget.
+    const WAKE_WARM_WINDOW_MS = 60_000
+    const previousPushAt = device.lastPushedAt?.getTime() ?? 0
+    const sinceLast = Date.now() - previousPushAt
+    const appLikelyDeepSuspended = previousPushAt === 0 || sinceLast > WAKE_WARM_WINDOW_MS
+
+    let wakeDecision: 'sent' | 'skipped_warm' | 'skipped_no_token' | 'skipped_not_attention' | 'skipped_level_override'
+    if (!ATTENTION.has(status)) {
+        wakeDecision = 'skipped_not_attention'
+    } else if (!device.complicationToken) {
+        wakeDecision = 'skipped_no_token'
+    } else if (level) {
+        wakeDecision = 'skipped_level_override'
+    } else if (!appLikelyDeepSuspended) {
+        wakeDecision = 'skipped_warm'
+    } else {
+        wakeDecision = 'sent'
+        void sendComplicationPush(
+            { token: device.complicationToken, bundleId: device.bundleId, environment: env },
+            status,
+        )
+    }
+    const sinceLastSec = previousPushAt === 0 ? null : Math.round(sinceLast / 1000)
+
     if (result.ok) {
         db.update(devices)
             .set({ lastPushedAt: new Date() })
             .where(eq(devices.id, device.id))
             .execute()
             .catch(() => {/* ignore */})
-        return c.json({ delivered: 1, invalidated: 0 })
+        return c.json({ delivered: 1, invalidated: 0, wake: wakeDecision, sinceLastSec })
     }
 
     if (isPermanentFailure(result)) {

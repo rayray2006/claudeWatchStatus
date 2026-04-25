@@ -1,6 +1,5 @@
 import Foundation
 import UserNotifications
-import WidgetKit
 
 /// Watch-side SwiftUI state holder for the current Claude Code status.
 ///
@@ -88,19 +87,24 @@ final class StateStore: ObservableObject {
             .flatMap(TapState.init(rawValue:))
 
         let notifications = await UNUserNotificationCenter.current().deliveredNotifications()
-        let latestNotif = notifications.compactMap { note -> (Date, TapState)? in
+        // Pick the notification with the highest `ts` (push generation time),
+        // not delivery date. Out-of-order APNs delivery would otherwise cause
+        // a delayed older push to look "newest" by delivery time.
+        let latestNotif = notifications.compactMap { note -> (TapState, TimeInterval)? in
             guard let raw = note.request.content.userInfo["status"] as? String,
                   let state = TapState(rawValue: raw) else { return nil }
-            return (note.date, state)
-        }.max(by: { $0.0 < $1.0 })
+            let pushTsMs = note.request.content.userInfo["ts"] as? Double ?? 0
+            let pushTs = pushTsMs / 1000.0
+            return (state, pushTs)
+        }.max(by: { $0.1 < $1.1 })
 
         // Prefer whichever signal is fresher between the cached write and the
-        // most recent delivered notification.
+        // most recent delivered notification (compared by push ts, not arrival).
         var targetState: TapState
         var targetDate: Date?
-        if let (date, state) = latestNotif, date.timeIntervalSince1970 > cachedTime {
+        if let (state, pushTs) = latestNotif, pushTs > cachedTime {
             targetState = state
-            targetDate = date
+            targetDate = Date(timeIntervalSince1970: pushTs)
         } else if let cached = cachedState {
             targetState = cached
             targetDate = nil
@@ -119,7 +123,21 @@ final class StateStore: ObservableObject {
 
         print("SYNC target=\(targetState.rawValue) current=\(currentState.rawValue)")
 
-        guard targetState != currentState else { return }
+        // The cache may have moved away and back to the same state while the
+        // app was closed (e.g. thinking → done → thinking). The state name
+        // matches what we have, but stateTimeKey advanced — adopt the new
+        // start time so the timer doesn't fold the two intervals together.
+        let cacheStartedAt = cachedTime > 0 ? Date(timeIntervalSince1970: cachedTime) : nil
+        let timeMovedForward = cacheStartedAt
+            .map { $0.timeIntervalSince(currentStateStartedAt) > 0.5 } ?? false
+
+        guard targetState != currentState || timeMovedForward else { return }
+
+        // Same state, just a fresher start time — no spinner flash.
+        if targetState == currentState, let cacheStartedAt {
+            currentStateStartedAt = cacheStartedAt
+            return
+        }
 
         isSyncing = true
         // Give SwiftUI a frame to paint the spinner, then swap state. The
@@ -128,6 +146,8 @@ final class StateStore: ObservableObject {
         try? await Task.sleep(for: spinnerRenderYield)
         if let targetDate {
             persist(targetState, at: targetDate)
+        } else if let cacheStartedAt {
+            persist(targetState, at: cacheStartedAt)
         } else {
             currentState = targetState
         }
@@ -137,9 +157,27 @@ final class StateStore: ObservableObject {
     /// Apply a state received in-flight (foreground delegate or background
     /// handler). No spinner — the spinner is reserved for sync-on-open when
     /// the cached state has drifted ahead of what the view is showing.
-    func updateState(_ state: TapState) {
+    ///
+    /// `pushTimestamp` is the push's generation time (from the `ts` field in
+    /// the payload). If provided, we use it as the canonical state-start time
+    /// and reject the update if it's older than what we already have — guards
+    /// against out-of-order APNs delivery flipping us back to a stale state.
+    ///
+    /// Returns `true` if the update was accepted, `false` if rejected as
+    /// stale. Callers should suppress the haptic when this returns `false`.
+    @discardableResult
+    func updateState(_ state: TapState, pushTimestamp: Date? = nil) -> Bool {
         if isSyncing { isSyncing = false }
-        persist(state, at: Date())
+        let pushTime = pushTimestamp ?? Date()
+
+        if let pushTimestamp,
+           pushTimestamp < currentStateStartedAt {
+            print("STORE_SKIP_STALE \(state.rawValue) pushTime=\(pushTimestamp.timeIntervalSince1970) startedAt=\(currentStateStartedAt.timeIntervalSince1970)")
+            return false
+        }
+
+        persist(state, at: pushTime)
+        return true
     }
 
     private func persist(_ state: TapState, at date: Date) {
@@ -160,10 +198,15 @@ final class StateStore: ObservableObject {
         currentState = state
         if stateChanged {
             currentStateStartedAt = date
-            // Belt-and-suspenders reload: NSE already fired one when the
-            // push arrived, but firing here too increases the chance that
-            // at least one reaches the system before throttling.
-            WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.smartStack)
+            // No reloadTimelines here — NSE already fired one when the push
+            // arrived, and WidgetKit's daily reload budget on watchOS is
+            // tight (~40-50/day per app). Doubling reloads at every state
+            // change exhausts the budget within an hour of normal use, after
+            // which subsequent reloads silently no-op and the complication
+            // freezes. NSE is the single source of truth for reloads.
+            //
+            // Auto-revert (done → idle at +5min) is handled by the widget
+            // timeline's future entry — no reload needed for that either.
         }
         scheduleStaleRevert()
     }

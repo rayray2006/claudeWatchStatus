@@ -18,6 +18,8 @@ enum HapticChoice: String, CaseIterable, Identifiable, Codable {
     case stop
     case navLeft
     case navRight
+    case underwater
+    case underwaterCritical
 
     var id: String { rawValue }
 
@@ -37,6 +39,8 @@ enum HapticChoice: String, CaseIterable, Identifiable, Codable {
         case .stop:      return "Stop"
         case .navLeft:   return "Left turn"
         case .navRight:  return "Right turn"
+        case .underwater:         return "Underwater"
+        case .underwaterCritical: return "Underwater critical"
         }
     }
 
@@ -81,6 +85,10 @@ enum HapticChoice: String, CaseIterable, Identifiable, Codable {
             dev.play(.navigationLeftTurn)
         case .navRight:
             dev.play(.navigationRightTurn)
+        case .underwater:
+            dev.play(.underwaterDepthPrompt)
+        case .underwaterCritical:
+            dev.play(.underwaterDepthCriticalPrompt)
         }
     }
 

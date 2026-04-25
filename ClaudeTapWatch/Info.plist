@@ -25,6 +25,7 @@
 	<key>WKBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>physical-therapy</string>
 	</array>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.fm.claudetap</string>

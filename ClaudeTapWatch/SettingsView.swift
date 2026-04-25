@@ -2,11 +2,33 @@ import SwiftUI
 
 struct SettingsView: View {
     @StateObject private var prefs = HapticPrefs.shared
+    @StateObject private var keepAlive = KeepAliveManager.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var keepAliveOn: Bool = KeepAliveManager.shared.isEnabled
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Toggle(isOn: $keepAliveOn) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Keep app alive")
+                                .font(.system(.body, weight: .medium))
+                            Text(keepAlive.isActive ? "Running" : "Off")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .onChange(of: keepAliveOn) { _, newValue in
+                        keepAlive.isEnabled = newValue
+                    }
+                } header: {
+                    Text("Reliability").textCase(nil)
+                } footer: {
+                    Text("Keeps the app running so haptics fire even after the watch idles. ~2-3× battery drain. Re-open the app if the chain breaks.")
+                        .font(.caption2)
+                }
+
                 Section {
                     ForEach(TapState.allKnown, id: \.self) { state in
                         NavigationLink {

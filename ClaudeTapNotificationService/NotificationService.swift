@@ -24,25 +24,41 @@ final class NotificationService: UNNotificationServiceExtension {
         self.bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent
 
         let raw = request.content.userInfo["status"] as? String
-        print("NSE_FIRED status=\(raw ?? "<none>")")
+        // Backend writes `ts` as JS milliseconds. Convert to Unix seconds.
+        let pushTsMs = request.content.userInfo["ts"] as? Double ?? 0
+        let pushTs = pushTsMs / 1000.0
+        print("NSE_FIRED status=\(raw ?? "<none>") pushTs=\(pushTs)")
 
-        // 1. Cache update. Only advance the timestamp when the state
-        // actually transitions — duplicate pushes of the same state
-        // (e.g. PreToolUse firing repeatedly) must NOT reset the
-        // duration timer the app shows.
         if let raw, let defaults = UserDefaults(suiteName: ClaudeTapConstants.appGroupID) {
             let cached = defaults.string(forKey: ClaudeTapConstants.Defaults.stateKey)
-            defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
-            if cached != raw {
-                defaults.set(Date().timeIntervalSince1970, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
-                // Force-flush so the widget process sees the new value before
-                // we ask the system to re-render. App Group UserDefaults isn't
-                // guaranteed to sync across processes in time otherwise.
-                defaults.synchronize()
-                WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.smartStack)
-                print("NSE_RELOAD \(raw) (was \(cached ?? "nil"))")
+            let cachedTs = defaults.double(forKey: ClaudeTapConstants.Defaults.stateTimeKey)
+
+            // Stale-push guard: APNs can deliver out of order. If this push's
+            // generation timestamp is older than what we already have cached,
+            // drop the cache update entirely so a late `thinking` doesn't
+            // overwrite a freshly-arrived `done`. We still call
+            // `contentHandler` below so the (stripped/silent) notification
+            // delivers to NC for sync's tertiary fallback.
+            if pushTs > 0 && pushTs < cachedTs {
+                print("NSE_SKIP_STALE pushTs=\(pushTs) < cachedTs=\(cachedTs)")
             } else {
-                print("NSE_SKIP \(raw) (unchanged)")
+                defaults.set(raw, forKey: ClaudeTapConstants.Defaults.stateKey)
+                // Only advance the stored timestamp when the state actually
+                // transitions — duplicate pushes of the same state (e.g.
+                // PreToolUse firing repeatedly) must NOT reset the duration
+                // timer the app shows.
+                if cached != raw {
+                    // Use the push's own timestamp rather than `now` so the
+                    // state's "started at" reflects when the transition was
+                    // actually generated, not when NSE happened to fire.
+                    let stateTime = pushTs > 0 ? pushTs : Date().timeIntervalSince1970
+                    defaults.set(stateTime, forKey: ClaudeTapConstants.Defaults.stateTimeKey)
+                    defaults.synchronize()
+                    WidgetCenter.shared.reloadTimelines(ofKind: ClaudeTapConstants.ComplicationKind.smartStack)
+                    print("NSE_RELOAD \(raw) (was \(cached ?? "nil"))")
+                } else {
+                    print("NSE_SKIP \(raw) (unchanged)")
+                }
             }
         }
 

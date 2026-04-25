@@ -1,11 +1,12 @@
 import WidgetKit
 import SwiftUI
 
-/// Minimal complication. Display is intentionally tiny — its only job is to
-/// be present on the user's watch face so the app earns the privileged
-/// `PKPushType.complication` push wake budget. Tactical wakes (done /
-/// approval pushes) come via that PushKit channel, not this widget's
-/// timeline.
+/// Two surfaces from one widget:
+///   - `.accessoryCircular`: face complication slot. Earns the
+///     PKPushType.complication wake budget so done/approval pushes wake the
+///     app from deep suspension. Renders sprite-only, filling the circle.
+///   - `.accessoryRectangular`: Smart Stack rotation. Sprite fills the full
+///     vertical height alongside the colored state label + ticking timer.
 struct ComplicationEntryView: View {
     let entry: ClaudeTapEntry
 
@@ -13,8 +14,6 @@ struct ComplicationEntryView: View {
 
     var body: some View {
         switch family {
-        case .accessoryInline:
-            inlineView
         case .accessoryRectangular:
             rectangularView
         default:
@@ -23,35 +22,48 @@ struct ComplicationEntryView: View {
     }
 
     private var circularView: some View {
-        ZStack {
-            // Cued mascot square
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(red: 204/255, green: 120/255, blue: 92/255))
-            HStack(spacing: 4) {
-                eye()
-                eye()
-            }
-        }
+        ClaudeSpriteView(state: entry.state)
+            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var rectangularView: some View {
-        HStack(spacing: 8) {
-            circularView
-                .frame(width: 22, height: 22)
-            Text("Cued")
-                .font(.system(.headline, weight: .semibold))
+        HStack(spacing: 6) {
+            // Fill the full ~42pt vertical space of the rectangular slot
+            // while keeping a square aspect — much bigger than the prior
+            // fixed 38pt frame.
+            ClaudeSpriteView(state: entry.state)
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxHeight: .infinity)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.state.label)
+                    .font(.system(.headline, weight: .semibold))
+                    .foregroundStyle(stateColor)
+                    .lineLimit(1)
+                if entry.state.isActive {
+                    // `Text(_:style: .timer)` auto-updates at ~1Hz without
+                    // needing extra timeline reloads — SwiftUI renders the
+                    // ticking elapsed time natively on watchOS.
+                    Text(entry.stateStartedAt, style: .timer)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                }
+            }
             Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
-    private var inlineView: some View {
-        Text("Cued")
-    }
-
-    private func eye() -> some View {
-        Capsule()
-            .fill(Color.black)
-            .frame(width: 2, height: 5)
+    private var stateColor: Color {
+        switch entry.state {
+        case .idle:          return .gray
+        case .thinking:      return .indigo
+        case .working:       return .orange
+        case .done:          return .green
+        case .needsApproval: return .blue
+        }
     }
 }
 
@@ -64,17 +76,10 @@ struct ClaudeTapWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: ClaudeTapComplicationProvider()) { entry in
             ComplicationEntryView(entry: entry)
-                .containerBackground(for: .widget) {
-                    Color.black
-                }
+                .containerBackground(for: .widget) { Color.black }
         }
         .configurationDisplayName("Cued")
-        .description("Add to your watch face for reliable wrist-tap delivery.")
-        .supportedFamilies([
-            .accessoryCircular,
-            .accessoryCorner,
-            .accessoryInline,
-            .accessoryRectangular,
-        ])
+        .description("Claude Code status — add to your watch face for wrist-tap delivery, surfaces in Smart Stack during sessions.")
+        .supportedFamilies([.accessoryCircular, .accessoryRectangular])
     }
 }
