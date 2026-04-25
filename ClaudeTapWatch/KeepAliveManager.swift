@@ -35,6 +35,12 @@ final class KeepAliveManager: NSObject, ObservableObject {
     private let healthStore = HKHealthStore()
     private var session: HKWorkoutSession?
     private var batteryObserver: NSObjectProtocol?
+    private var idleTimer: Timer?
+
+    /// End the session if there's no push or app activity for this long.
+    /// Saves battery during the user's natural idle windows (away from
+    /// keyboard, sleeping, between sessions). Re-arms on next app open.
+    private static let idleTimeout: TimeInterval = 30 * 60
 
     private static let preferenceKey = "cued.keepAliveEnabled"
 
@@ -66,9 +72,9 @@ final class KeepAliveManager: NSObject, ObservableObject {
 
     /// Call from `applicationDidBecomeActive`. Workout sessions survive
     /// indefinite background time, so a healthy session shouldn't ever need
-    /// restarting. But if the process was killed (OOM, force-quit, or our
-    /// own auto-pause-on-charge fired earlier and the app then got
-    /// suspended) opening the app re-arms via this hook.
+    /// restarting. But if the process was killed (OOM, force-quit, our
+    /// own auto-pause-on-charge fired earlier, or the idle timeout ended
+    /// the session), opening the app re-arms via this hook.
     func resumeIfEnabled() {
         guard isEnabled else { return }
         // Honor the on-charger auto-pause from this entry too.
@@ -77,9 +83,40 @@ final class KeepAliveManager: NSObject, ObservableObject {
             return
         }
         if let s = session, s.state == .running || s.state == .prepared {
+            // Session already running — just bump the idle timer since the
+            // user opening the app counts as activity.
+            scheduleIdleTimer()
             return
         }
         Task { await startSession() }
+    }
+
+    /// Reset the 30-minute idle timer. Called from every push handler and
+    /// from `applicationDidBecomeActive` so the session only ends after a
+    /// genuine quiet stretch with no app activity. No-op when no session
+    /// is running.
+    func markActivity() {
+        scheduleIdleTimer()
+    }
+
+    private func scheduleIdleTimer() {
+        idleTimer?.invalidate()
+        idleTimer = nil
+        guard isEnabled, let s = session,
+              s.state == .running || s.state == .prepared else { return }
+        let t = Timer(timeInterval: Self.idleTimeout, repeats: false) { _ in
+            Task { @MainActor in
+                Self.shared.handleIdleTimeout()
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        idleTimer = t
+    }
+
+    private func handleIdleTimeout() {
+        guard let s = session, s.state == .running else { return }
+        print("KEEPALIVE_IDLE_TIMEOUT 30min — ending session")
+        s.end()
     }
 
     private var isOnCharger: Bool {
@@ -145,6 +182,9 @@ final class KeepAliveManager: NSObject, ObservableObject {
             s.delegate = self
             s.startActivity(with: Date())
             session = s
+            // Schedule the initial idle window from session start; each
+            // arriving push will reset it via markActivity().
+            scheduleIdleTimer()
             print("KEEPALIVE_START_REQUESTED workout-other")
         } catch {
             print("KEEPALIVE_START_ERROR \(error.localizedDescription)")
@@ -157,6 +197,8 @@ final class KeepAliveManager: NSObject, ObservableObject {
         session?.end()
         // Session reference is cleared on the .ended state-change callback;
         // we don't nil it here to avoid racing with the delegate.
+        idleTimer?.invalidate()
+        idleTimer = nil
         isActive = false
         print("KEEPALIVE_STOP_REQUESTED")
     }
@@ -179,13 +221,13 @@ extension KeepAliveManager: HKWorkoutSessionDelegate {
             case .ended, .stopped:
                 self.isActive = false
                 self.session = nil
-                // If still enabled and we're not in the auto-pause case,
-                // attempt restart. The on-charger guard inside startSession
-                // prevents an infinite loop when we ended *because* of
-                // charging.
-                if self.isEnabled, !self.isOnCharger {
-                    Task { await self.startSession() }
-                }
+                self.idleTimer?.invalidate()
+                self.idleTimer = nil
+                // No auto-restart here. All restart paths flow through
+                // resumeIfEnabled() (called from applicationDidBecomeActive)
+                // or the unplug branch of handleBatteryStateChange. This
+                // keeps idle-timeout / on-charger / user-toggle ends from
+                // looping back into a fresh session unintentionally.
             default:
                 break
             }

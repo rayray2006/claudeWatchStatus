@@ -78,9 +78,9 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     func applicationDidBecomeActive() {
         print("DID_BECOME_ACTIVE")
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
-        // Re-arm the chained extended-runtime keep-alive if the user has it
-        // enabled. Only safe to call from active/foreground; this lifecycle
-        // hook is the right place.
+        // Re-arm the keep-alive workout session if the user has it enabled.
+        // resumeIfEnabled also bumps the idle timer if a session is already
+        // running (opening the app counts as activity).
         KeepAliveManager.shared.resumeIfEnabled()
     }
 
@@ -104,6 +104,7 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
         let raw = userInfo["status"] as? String
         let pushTime = Self.pushTimestamp(from: userInfo)
         print("DID_RECEIVE_REMOTE status=\(raw ?? "<none>") pushTs=\(pushTime?.timeIntervalSince1970 ?? 0)")
+        KeepAliveManager.shared.markActivity()
         if let raw, let state = TapState(rawValue: raw) {
             StateStore.shared.updateState(state, pushTimestamp: pushTime)
             await playHapticDebounced(for: state)
@@ -135,6 +136,7 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
         if let raw, let state = TapState(rawValue: raw) {
             MainActor.assumeIsolated {
                 StateStore.shared.updateState(state, pushTimestamp: pushTime)
+                KeepAliveManager.shared.markActivity()
             }
             // Play our chosen haptic explicitly — the system suppresses
             // notification haptics in Notification Center Only mode, so we
@@ -217,6 +219,7 @@ final class ComplicationPushDelegate: NSObject, PKPushRegistryDelegate {
         // can re-suspend us promptly; the haptic plays asynchronously.
         Task { @MainActor in
             StateStore.shared.updateState(state, pushTimestamp: pushTime)
+            KeepAliveManager.shared.markActivity()
             await playHapticDebounced(for: state)
         }
         completion()
