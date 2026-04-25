@@ -25,7 +25,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Reliability").textCase(nil)
                 } footer: {
-                    Text("Keeps the app running so haptics fire even after the watch idles. ~2-3× battery drain. Re-open the app if the chain breaks.")
+                    Text("Runs an indoor workout session in the background so wrist taps fire even when the app is closed. Watch face shows a green workout indicator while active. Higher battery use.")
                         .font(.caption2)
                 }
 

@@ -56,7 +56,9 @@ targets:
         WKRunsIndependentlyOfCompanionApp: true
         WKBackgroundModes:
           - remote-notification
-          - physical-therapy
+          - workout-processing
+        NSHealthShareUsageDescription: Cued runs a workout session in the background so wrist-tap notifications fire reliably even when the app is closed.
+        NSHealthUpdateUsageDescription: Cued runs a workout session in the background so wrist-tap notifications fire reliably even when the app is closed.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp

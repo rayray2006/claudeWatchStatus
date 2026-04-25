@@ -1,32 +1,30 @@
 import Foundation
+import HealthKit
 import WatchKit
 
-/// Keeps the watch app running long-term via chained
-/// `WKExtendedRuntimeSession` instances using `physicalTherapy` (the longest
-/// background-runnable reason — 1 hour per session, doesn't end on Crown
-/// press, doesn't require app foreground while running).
+/// Keeps the watch app process alive long-term using `HKWorkoutSession` with
+/// `HKWorkoutActivityType.other`. This is the only watchOS API that grants
+/// reliable indefinite background runtime to a non-fitness app — chained
+/// `WKExtendedRuntimeSession` instances were tried previously and proved
+/// fragile (sessions terminated early due to `.suppressedBySystem`,
+/// `willExpire` callback often skipped, no recovery from background).
 ///
-/// Why this works for Cued: regular APNs alert pushes only fire haptics
-/// reliably while the app is "warm" (not deep-suspended). Once a session is
-/// active the app process stays alive, so `didReceiveRemoteNotification`
-/// fires on every push and `playHapticDebounced` runs.
+/// Cost: while a session is active the watch face shows the green workout
+/// indicator, and battery drain is roughly 5-10× idle. We collect no
+/// samples (no `HKLiveWorkoutBuilder`, no HR queries) — the session exists
+/// purely for its side effect of keeping the app process resident so
+/// `didReceiveRemoteNotification` fires for every push and our explicit
+/// `WKInterfaceDevice.play(_:)` runs.
 ///
-/// Chain pattern: each session's `willExpire` callback immediately starts a
-/// new session. Apple constraint: extended runtime sessions can only be
-/// started while the app is foreground/active (start from a background-task
-/// callback returns Code=3). So if the chain ever breaks (process killed,
-/// session start fails outside foreground), the user must reopen the app to
-/// re-arm.
-///
-/// Battery cost: roughly 2-3× idle drain. Off by default; user opts in via
-/// Settings.
+/// Off by default; user opts in via Settings.
 @MainActor
 final class KeepAliveManager: NSObject, ObservableObject {
     static let shared = KeepAliveManager()
 
     @Published private(set) var isActive: Bool = false
 
-    private var session: WKExtendedRuntimeSession?
+    private let healthStore = HKHealthStore()
+    private var session: HKWorkoutSession?
 
     private static let preferenceKey = "cued.keepAliveEnabled"
 
@@ -35,92 +33,112 @@ final class KeepAliveManager: NSObject, ObservableObject {
         set {
             UserDefaults.standard.set(newValue, forKey: Self.preferenceKey)
             if newValue {
-                startNewSession()
+                Task { await startSession() }
             } else {
                 stop()
             }
         }
     }
 
-    /// Call from `applicationDidBecomeActive`. Starts a session if the user
-    /// has the toggle on and we don't already have a running session.
+    /// Call from `applicationDidBecomeActive`. Workout sessions survive
+    /// indefinite background time, so a healthy session shouldn't ever need
+    /// restarting. But if the process was killed (OOM, force-quit) the
+    /// session ends with it; opening the app re-arms via this hook.
     func resumeIfEnabled() {
         guard isEnabled else { return }
-        if let existing = session, existing.state == .running {
+        if let s = session, s.state == .running || s.state == .prepared {
             return
         }
-        startNewSession()
+        Task { await startSession() }
     }
 
-    private func startNewSession() {
-        let s = WKExtendedRuntimeSession()
-        s.delegate = self
-        s.start()
-        session = s
-        print("KEEPALIVE_START_REQUESTED")
+    private func startSession() async {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            print("KEEPALIVE_HEALTH_UNAVAILABLE")
+            return
+        }
+
+        // HKWorkoutSession requires share-authorization for HKWorkoutType
+        // even if we never actually save samples — the session implicitly
+        // creates a workout record at end. Read-set is empty; we're not
+        // collecting anything.
+        do {
+            try await healthStore.requestAuthorization(
+                toShare: [HKObjectType.workoutType()],
+                read: []
+            )
+        } catch {
+            print("KEEPALIVE_AUTH_ERROR \(error.localizedDescription)")
+            return
+        }
+
+        let config = HKWorkoutConfiguration()
+        config.activityType = .other
+        config.locationType = .indoor
+
+        do {
+            let s = try HKWorkoutSession(
+                healthStore: healthStore,
+                configuration: config
+            )
+            s.delegate = self
+            s.startActivity(with: Date())
+            session = s
+            print("KEEPALIVE_START_REQUESTED workout-other")
+        } catch {
+            print("KEEPALIVE_START_ERROR \(error.localizedDescription)")
+            session = nil
+            isActive = false
+        }
     }
 
     private func stop() {
-        session?.invalidate()
-        session = nil
+        session?.end()
+        // Session reference is cleared on the .ended state-change callback;
+        // we don't nil it here to avoid racing with the delegate.
         isActive = false
-        print("KEEPALIVE_STOP")
+        print("KEEPALIVE_STOP_REQUESTED")
     }
 }
 
-extension KeepAliveManager: WKExtendedRuntimeSessionDelegate {
-    nonisolated func extendedRuntimeSessionDidStart(
-        _ extendedRuntimeSession: WKExtendedRuntimeSession
+extension KeepAliveManager: HKWorkoutSessionDelegate {
+    nonisolated func workoutSession(
+        _ workoutSession: HKWorkoutSession,
+        didChangeTo toState: HKWorkoutSessionState,
+        from fromState: HKWorkoutSessionState,
+        date: Date
     ) {
-        // Snapshot the description outside the actor hop — capturing the
-        // session reference itself across actors trips strict-concurrency.
-        let expirationDescription = extendedRuntimeSession.expirationDate?.description ?? "nil"
+        let toRaw = toState.rawValue
+        let fromRaw = fromState.rawValue
         Task { @MainActor in
-            print("KEEPALIVE_STARTED expires=\(expirationDescription)")
-            self.isActive = true
-        }
-    }
-
-    nonisolated func extendedRuntimeSessionWillExpire(
-        _ extendedRuntimeSession: WKExtendedRuntimeSession
-    ) {
-        // Chain a new session before this one expires. This callback runs
-        // while the current session is still active, so start() is allowed.
-        Task { @MainActor in
-            print("KEEPALIVE_WILL_EXPIRE chaining")
-            guard self.isEnabled else { return }
-            let next = WKExtendedRuntimeSession()
-            next.delegate = self
-            next.start()
-            self.session = next
-        }
-    }
-
-    nonisolated func extendedRuntimeSession(
-        _ extendedRuntimeSession: WKExtendedRuntimeSession,
-        didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason,
-        error: Error?
-    ) {
-        // Capture identity (Sendable) instead of the session reference itself
-        // so we can do the "was this our current session?" check on main actor
-        // without crossing a non-Sendable value across actors.
-        let invalidatedId = ObjectIdentifier(extendedRuntimeSession)
-        let reasonRaw = reason.rawValue
-        let errorDescription = error?.localizedDescription ?? "nil"
-        Task { @MainActor in
-            print("KEEPALIVE_INVALIDATED reason=\(reasonRaw) error=\(errorDescription)")
-            // Only clear if this is the session we currently track — chained
-            // sessions arrive in a sequence and the previous one invalidates
-            // after the next one is already running.
-            if let current = self.session, ObjectIdentifier(current) == invalidatedId {
-                self.session = nil
+            print("KEEPALIVE_STATE from=\(fromRaw) to=\(toRaw)")
+            switch toState {
+            case .running:
+                self.isActive = true
+            case .ended, .stopped:
                 self.isActive = false
+                self.session = nil
+                // If still enabled (e.g., session was ended by something
+                // other than the user — system kill, conflicting workout)
+                // and we're foreground, attempt restart.
+                if self.isEnabled {
+                    Task { await self.startSession() }
+                }
+            default:
+                break
             }
-            // If still enabled and we have no live session, attempt to
-            // restart. Will fail with Code=3 if the app isn't foreground.
-            if self.isEnabled, self.session == nil {
-                self.startNewSession()
-            }
+        }
+    }
+
+    nonisolated func workoutSession(
+        _ workoutSession: HKWorkoutSession,
+        didFailWithError error: Error
+    ) {
+        let description = error.localizedDescription
+        Task { @MainActor in
+            print("KEEPALIVE_FAILED \(description)")
+            self.isActive = false
+            self.session = nil
         }
     }
 }
