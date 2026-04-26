@@ -47,6 +47,12 @@ struct SettingsView: View {
                     } label: {
                         Label("Workout log", systemImage: "list.bullet.rectangle")
                     }
+
+                    NavigationLink {
+                        PushLogView()
+                    } label: {
+                        Label("Push log", systemImage: "list.bullet.rectangle")
+                    }
                 } header: {
                     Text("Reliability").textCase(nil)
                 } footer: {

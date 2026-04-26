@@ -34,11 +34,19 @@ func playHapticDebounced(for state: TapState) async {
     let now = Date()
     if let last = lastHapticAtByState[state], now.timeIntervalSince(last) < hapticDebounceWindow {
         print("HAPTIC_SKIP debounced \(state.rawValue)")
+        PushEventLog.record(.hapticSkippedDebounce, detail: state.rawValue)
         return
     }
     lastHapticAtByState[state] = now
-    print("HAPTIC_PLAY \(state.rawValue)")
-    await HapticPrefs.shared.choice(for: state).play()
+    let choice = HapticPrefs.shared.choice(for: state)
+    if choice == .none {
+        print("HAPTIC_SKIP_NONE \(state.rawValue)")
+        PushEventLog.record(.hapticSkippedNone, detail: state.rawValue)
+        return
+    }
+    print("HAPTIC_PLAY \(state.rawValue) (\(choice.rawValue))")
+    PushEventLog.record(.hapticPlayed, detail: "\(state.rawValue) (\(choice.rawValue))")
+    await choice.play()
 }
 
 @MainActor
@@ -105,6 +113,7 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
         let raw = userInfo["status"] as? String
         let pushTime = Self.pushTimestamp(from: userInfo)
         print("DID_RECEIVE_REMOTE status=\(raw ?? "<none>") pushTs=\(pushTime?.timeIntervalSince1970 ?? 0)")
+        PushEventLog.record(.backgroundDelivered, detail: raw ?? "<none>")
         KeepAliveManager.shared.markActivity()
         if let raw, let state = TapState(rawValue: raw) {
             StateStore.shared.updateState(state, pushTimestamp: pushTime)
@@ -136,6 +145,7 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
         print("WILL_PRESENT status=\(raw ?? "<none>") pushTs=\(pushTime?.timeIntervalSince1970 ?? 0)")
         if let raw, let state = TapState(rawValue: raw) {
             MainActor.assumeIsolated {
+                PushEventLog.record(.foregroundDelivered, detail: raw)
                 StateStore.shared.updateState(state, pushTimestamp: pushTime)
                 KeepAliveManager.shared.markActivity()
             }
@@ -219,6 +229,7 @@ final class ComplicationPushDelegate: NSObject, PKPushRegistryDelegate {
         // immediately on next render). Ack PushKit synchronously so the system
         // can re-suspend us promptly; the haptic plays asynchronously.
         Task { @MainActor in
+            PushEventLog.record(.complicationDelivered, detail: raw)
             StateStore.shared.updateState(state, pushTimestamp: pushTime)
             KeepAliveManager.shared.markActivity()
             await playHapticDebounced(for: state)
