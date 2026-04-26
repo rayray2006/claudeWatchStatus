@@ -50,6 +50,37 @@ final class WorkoutKeepAliveManager: NSObject, ObservableObject {
         Task { await startSession() }
     }
 
+    /// Call once at process startup (from `applicationDidFinishLaunching`).
+    /// If the process crashed while a workout session was active, the OS
+    /// keeps the session alive and gives it back here — we adopt it as our
+    /// own instead of starting a new one. Apple's documented hook for this
+    /// exact case; without it, we'd start a fresh session and the orphaned
+    /// one would still be running invisibly until the OS reclaims it.
+    func tryRecoverActiveSession() {
+        guard isEnabled else { return }
+        healthStore.recoverActiveWorkoutSession { [weak self] recovered, error in
+            Task { @MainActor in
+                guard let self else { return }
+                if let error {
+                    print("WORKOUT_RECOVER_ERROR \(error.localizedDescription)")
+                    WorkoutEventLog.record(.startFailed, detail: "recover error: \(error.localizedDescription)")
+                    return
+                }
+                guard let recovered else {
+                    print("WORKOUT_NO_SESSION_TO_RECOVER")
+                    return
+                }
+                print("WORKOUT_RECOVERED state=\(workoutStateName(recovered.state))")
+                WorkoutEventLog.record(.stateChange, detail: "recovered \(workoutStateName(recovered.state))")
+                recovered.delegate = self
+                self.session = recovered
+                if recovered.state == .running || recovered.state == .prepared {
+                    self.isActive = true
+                }
+            }
+        }
+    }
+
     private func startSession() async {
         guard HKHealthStore.isHealthDataAvailable() else {
             print("WORKOUT_HEALTH_UNAVAILABLE")
