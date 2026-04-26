@@ -57,7 +57,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Lightweight (physical-therapy)").textCase(nil)
                 } footer: {
-                    Text("Chained 1-hour extended-runtime sessions. No watch-face UI intrusion, lower battery, but the OS may suppress sessions after a few hours of use; opening the app re-arms.")
+                    Text("Single 1-hour extended-runtime session. No watch-face UI intrusion, lower battery. Each session lasts at most an hour — re-open the app to start a new one. Apple's API doesn't allow chaining sessions from the background.")
                         .font(.caption2)
                 }
 

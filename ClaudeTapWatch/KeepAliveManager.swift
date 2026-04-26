@@ -1,18 +1,16 @@
 import Foundation
 import WatchKit
 
-/// Keeps the watch app process alive via chained `WKExtendedRuntimeSession`
+/// Keeps the watch app process alive via single `WKExtendedRuntimeSession`
 /// instances. Reason is determined by the `WKBackgroundModes` Info.plist
-/// entry — currently `mindfulness` (1 hr/session). To switch reasons,
-/// change the Info.plist entry; this file's logic is reason-agnostic.
+/// entry — currently `physical-therapy` (1 hr/session).
 ///
-/// Sessions can terminate early via `.suppressedBySystem` (raw value 4) due
-/// to undocumented OS-level pressure (memory, thermal, daily session
-/// budget, Low Power Mode — Apple's docs don't say which). When that
-/// happens, `willExpire` is skipped and the chain breaks silently. Apple
-/// does not allow starting a session from a background callback (Code=3),
-/// so a broken chain stays broken until `applicationDidBecomeActive`
-/// re-arms via `resumeIfEnabled()`.
+/// No chaining: Apple's "app must be active" rule (Code=3 from start())
+/// makes the willExpire-chain pattern fundamentally broken — the start
+/// call in willExpire fails silently when the app is backgrounded, which
+/// is almost always the case. Each session simply runs until it expires
+/// (~1 hour) or until the OS suppresses it; user re-opens the app to
+/// re-arm via `applicationDidBecomeActive` → `resumeIfEnabled()`.
 ///
 /// All lifecycle events go through `SessionEventLog` so they can be
 /// inspected on-watch via the Keep-alive log Settings view (no Xcode
@@ -128,20 +126,15 @@ extension KeepAliveManager: WKExtendedRuntimeSessionDelegate {
     nonisolated func extendedRuntimeSessionWillExpire(
         _ extendedRuntimeSession: WKExtendedRuntimeSession
     ) {
-        // Chain a new session before this one expires. This callback runs
-        // while the current session is still active, so start() is allowed.
+        // No chaining. The chain pattern requires start() to succeed in this
+        // callback context, but Apple enforces "app must be active" (Code=3)
+        // which fails in the background — i.e., almost every time the chain
+        // would actually be useful. Just log expiry; user re-arms by
+        // re-opening the app, which fires applicationDidBecomeActive →
+        // resumeIfEnabled.
         Task { @MainActor in
-            print("KEEPALIVE_WILL_EXPIRE chaining")
-            SessionEventLog.record(.willExpire)
-            guard self.isEnabled else { return }
-            self.idleTimer?.invalidate()
-            self.idleTimer = nil
-            let next = WKExtendedRuntimeSession()
-            next.delegate = self
-            next.start()
-            self.session = next
-            self.scheduleIdleTimer()
-            SessionEventLog.record(.chained)
+            print("KEEPALIVE_WILL_EXPIRE — no chain (re-open app to re-arm)")
+            SessionEventLog.record(.willExpire, detail: "no chain — re-open to re-arm")
         }
     }
 
