@@ -57,9 +57,6 @@ targets:
         WKBackgroundModes:
           - remote-notification
           - physical-therapy
-          - location
-        NSLocationWhenInUseUsageDescription: Cued uses background location updates as a way to keep the app alive between pushes. Location data is never read or stored.
-        NSLocationAlwaysAndWhenInUseUsageDescription: Cued uses background location updates as a way to keep the app alive between pushes. Location data is never read or stored.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp

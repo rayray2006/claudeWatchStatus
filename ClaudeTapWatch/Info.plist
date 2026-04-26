@@ -26,12 +26,7 @@
 	<array>
 		<string>remote-notification</string>
 		<string>physical-therapy</string>
-		<string>location</string>
 	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Cued uses background location updates as a way to keep the app alive between pushes. Location data is never read or stored.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Cued uses background location updates as a way to keep the app alive between pushes. Location data is never read or stored.</string>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.fm.claudetap</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>

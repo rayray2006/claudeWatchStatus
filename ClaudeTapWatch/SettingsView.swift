@@ -3,10 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var prefs = HapticPrefs.shared
     @StateObject private var keepAlive = KeepAliveManager.shared
-    @StateObject private var locationKeepAlive = LocationKeepAliveManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var keepAliveOn: Bool = KeepAliveManager.shared.isEnabled
-    @State private var locationKeepAliveOn: Bool = LocationKeepAliveManager.shared.isEnabled
 
     var body: some View {
         NavigationStack {
@@ -14,7 +12,7 @@ struct SettingsView: View {
                 Section {
                     Toggle(isOn: $keepAliveOn) {
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Workout-style")
+                            Text("Keep app alive")
                                 .font(.system(.body, weight: .medium))
                             Text(keepAlive.isActive ? "Running" : "Off")
                                 .font(.caption2)
@@ -27,30 +25,12 @@ struct SettingsView: View {
                     NavigationLink {
                         KeepAliveLogView()
                     } label: {
-                        Label("Workout log", systemImage: "list.bullet.rectangle")
-                    }
-
-                    Toggle(isOn: $locationKeepAliveOn) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Background location")
-                                .font(.system(.body, weight: .medium))
-                            Text(locationKeepAlive.isActive ? "Running" : "Off")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .onChange(of: locationKeepAliveOn) { _, newValue in
-                        locationKeepAlive.isEnabled = newValue
-                    }
-                    NavigationLink {
-                        LocationLogView()
-                    } label: {
-                        Label("Location log", systemImage: "list.bullet.rectangle")
+                        Label("View log", systemImage: "list.bullet.rectangle")
                     }
                 } header: {
                     Text("Reliability").textCase(nil)
                 } footer: {
-                    Text("Two independent keep-alive mechanisms — enable either or both. Workout-style uses extended runtime sessions (auto-chains, ends after 30 min idle). Background location uses CoreLocation updates from a separate OS budget. Open the app to re-arm if either stops.")
+                    Text("Keeps the app running in the background so wrist taps fire even when closed. Sessions run up to 1 hour and chain seamlessly. Auto-ends after 30 minutes of no activity; open the app to re-arm. Log shows session lifecycle events.")
                         .font(.caption2)
                 }
 
