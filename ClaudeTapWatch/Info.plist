@@ -26,6 +26,7 @@
 	<array>
 		<string>remote-notification</string>
 		<string>workout-processing</string>
+		<string>physical-therapy</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Cued runs a workout session in the background as an alternative way to keep the app alive between pushes.</string>
