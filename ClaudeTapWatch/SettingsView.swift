@@ -3,8 +3,10 @@ import SwiftUI
 struct SettingsView: View {
     @StateObject private var prefs = HapticPrefs.shared
     @StateObject private var keepAlive = KeepAliveManager.shared
+    @StateObject private var workoutKeepAlive = WorkoutKeepAliveManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var keepAliveOn: Bool = KeepAliveManager.shared.isEnabled
+    @State private var workoutKeepAliveOn: Bool = WorkoutKeepAliveManager.shared.isEnabled
 
     var body: some View {
         NavigationStack {
@@ -12,7 +14,7 @@ struct SettingsView: View {
                 Section {
                     Toggle(isOn: $keepAliveOn) {
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Keep app alive")
+                            Text("Extended runtime")
                                 .font(.system(.body, weight: .medium))
                             Text(keepAlive.isActive ? "Running" : "Off")
                                 .font(.caption2)
@@ -25,12 +27,30 @@ struct SettingsView: View {
                     NavigationLink {
                         KeepAliveLogView()
                     } label: {
-                        Label("View log", systemImage: "list.bullet.rectangle")
+                        Label("Runtime log", systemImage: "list.bullet.rectangle")
+                    }
+
+                    Toggle(isOn: $workoutKeepAliveOn) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Workout session")
+                                .font(.system(.body, weight: .medium))
+                            Text(workoutKeepAlive.isActive ? "Running" : "Off")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .onChange(of: workoutKeepAliveOn) { _, newValue in
+                        workoutKeepAlive.isEnabled = newValue
+                    }
+                    NavigationLink {
+                        WorkoutLogView()
+                    } label: {
+                        Label("Workout log", systemImage: "list.bullet.rectangle")
                     }
                 } header: {
                     Text("Reliability").textCase(nil)
                 } footer: {
-                    Text("Keeps the app running in the background so wrist taps fire even when closed. Sessions run up to 1 hour and chain seamlessly. Auto-ends after 30 minutes of no activity; open the app to re-arm. Log shows session lifecycle events.")
+                    Text("Two independent keep-alive mechanisms — enable either or both. Extended runtime is lightweight but the OS may suppress it after a few hours. Workout session is reliable but shows the green workout indicator on the watch face and uses noticeably more battery.")
                         .font(.caption2)
                 }
 

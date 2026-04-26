@@ -78,10 +78,11 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     func applicationDidBecomeActive() {
         print("DID_BECOME_ACTIVE")
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
-        // Re-arm the keep-alive workout session if the user has it enabled.
-        // resumeIfEnabled also bumps the idle timer if a session is already
-        // running (opening the app counts as activity).
+        // Re-arm both keep-alive mechanisms if their respective toggles are
+        // on. Both must be re-armed from foreground if they died in
+        // background (Apple constraint). Either or both may be active.
         KeepAliveManager.shared.resumeIfEnabled()
+        WorkoutKeepAliveManager.shared.resumeIfEnabled()
     }
 
     func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
