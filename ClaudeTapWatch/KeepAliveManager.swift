@@ -2,20 +2,21 @@ import Foundation
 import WatchKit
 
 /// Keeps the watch app process alive via chained `WKExtendedRuntimeSession`
-/// instances using `.physicalTherapy` (1 hour per session, runs in
-/// background, no workout-style UI intrusion).
+/// instances. Reason is determined by the `WKBackgroundModes` Info.plist
+/// entry — currently `mindfulness` (1 hr/session). To switch reasons,
+/// change the Info.plist entry; this file's logic is reason-agnostic.
 ///
-/// Sessions can terminate early if the OS feels memory/battery pressure
-/// (`.suppressedBySystem`); chain pattern (start a new session in
-/// `willExpire`) is fragile and silently breaks if the OS skips
-/// `willExpire` on abrupt invalidation. Apple does not allow starting a
-/// session from a background callback (Code=3), so a broken chain stays
-/// broken until the user reopens the app.
+/// Sessions can terminate early via `.suppressedBySystem` (raw value 4) due
+/// to undocumented OS-level pressure (memory, thermal, daily session
+/// budget, Low Power Mode — Apple's docs don't say which). When that
+/// happens, `willExpire` is skipped and the chain breaks silently. Apple
+/// does not allow starting a session from a background callback (Code=3),
+/// so a broken chain stays broken until `applicationDidBecomeActive`
+/// re-arms via `resumeIfEnabled()`.
 ///
-/// Battery-saving heuristic: auto-end if no push or app activity for 30
-/// minutes. Re-arms on next `applicationDidBecomeActive`.
-///
-/// Off by default; user opts in via Settings.
+/// All lifecycle events go through `SessionEventLog` so they can be
+/// inspected on-watch via the Keep-alive log Settings view (no Xcode
+/// attachment needed for diagnosis).
 @MainActor
 final class KeepAliveManager: NSObject, ObservableObject {
     static let shared = KeepAliveManager()
@@ -66,7 +67,8 @@ final class KeepAliveManager: NSObject, ObservableObject {
         s.start()
         session = s
         scheduleIdleTimer()
-        print("KEEPALIVE_START_REQUESTED physical-therapy")
+        print("KEEPALIVE_START_REQUESTED")
+        SessionEventLog.record(.startRequested)
     }
 
     private func stop() {
@@ -75,6 +77,7 @@ final class KeepAliveManager: NSObject, ObservableObject {
         idleTimer = nil
         isActive = false
         print("KEEPALIVE_STOP_REQUESTED")
+        SessionEventLog.record(.manualStop)
     }
 
     private func scheduleIdleTimer() {
@@ -93,7 +96,20 @@ final class KeepAliveManager: NSObject, ObservableObject {
     private func handleIdleTimeout() {
         guard let s = session, s.state == .running else { return }
         print("KEEPALIVE_IDLE_TIMEOUT 30min — ending session")
+        SessionEventLog.record(.idleTimeout, detail: "no activity for 30m")
         s.invalidate()
+    }
+}
+
+private func readableInvalidationReason(_ reason: WKExtendedRuntimeSessionInvalidationReason) -> String {
+    switch reason {
+    case .none:              return "none"
+    case .expired:           return "expired"
+    case .sessionInProgress: return "sessionInProgress"
+    case .error:             return "error"
+    case .suppressedBySystem: return "suppressedBySystem"
+    case .resignedFrontmost: return "resignedFrontmost"
+    @unknown default:        return "unknown"
     }
 }
 
@@ -104,6 +120,7 @@ extension KeepAliveManager: WKExtendedRuntimeSessionDelegate {
         let expirationDescription = extendedRuntimeSession.expirationDate?.description ?? "nil"
         Task { @MainActor in
             print("KEEPALIVE_STARTED expires=\(expirationDescription)")
+            SessionEventLog.record(.started, detail: "expires=\(expirationDescription)")
             self.isActive = true
         }
     }
@@ -115,6 +132,7 @@ extension KeepAliveManager: WKExtendedRuntimeSessionDelegate {
         // while the current session is still active, so start() is allowed.
         Task { @MainActor in
             print("KEEPALIVE_WILL_EXPIRE chaining")
+            SessionEventLog.record(.willExpire)
             guard self.isEnabled else { return }
             self.idleTimer?.invalidate()
             self.idleTimer = nil
@@ -123,6 +141,7 @@ extension KeepAliveManager: WKExtendedRuntimeSessionDelegate {
             next.start()
             self.session = next
             self.scheduleIdleTimer()
+            SessionEventLog.record(.chained)
         }
     }
 
@@ -133,9 +152,14 @@ extension KeepAliveManager: WKExtendedRuntimeSessionDelegate {
     ) {
         let invalidatedId = ObjectIdentifier(extendedRuntimeSession)
         let reasonRaw = reason.rawValue
+        let reasonName = readableInvalidationReason(reason)
         let errorDescription = error?.localizedDescription ?? "nil"
         Task { @MainActor in
-            print("KEEPALIVE_INVALIDATED reason=\(reasonRaw) error=\(errorDescription)")
+            print("KEEPALIVE_INVALIDATED reason=\(reasonRaw)(\(reasonName)) error=\(errorDescription)")
+            SessionEventLog.record(
+                .invalidated,
+                detail: "reason=\(reasonName) error=\(errorDescription)"
+            )
             if let current = self.session, ObjectIdentifier(current) == invalidatedId {
                 self.session = nil
                 self.isActive = false

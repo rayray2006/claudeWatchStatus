@@ -22,10 +22,15 @@ struct SettingsView: View {
                     .onChange(of: keepAliveOn) { _, newValue in
                         keepAlive.isEnabled = newValue
                     }
+                    NavigationLink {
+                        KeepAliveLogView()
+                    } label: {
+                        Label("View log", systemImage: "list.bullet.rectangle")
+                    }
                 } header: {
                     Text("Reliability").textCase(nil)
                 } footer: {
-                    Text("Keeps the app running in the background so wrist taps fire even when closed. Sessions run up to 1 hour and chain seamlessly. Auto-ends after 30 minutes of no activity; open the app to re-arm.")
+                    Text("Keeps the app running in the background so wrist taps fire even when closed. Sessions run up to 1 hour and chain seamlessly. Auto-ends after 30 minutes of no activity; open the app to re-arm. Log shows session lifecycle events.")
                         .font(.caption2)
                 }
 
