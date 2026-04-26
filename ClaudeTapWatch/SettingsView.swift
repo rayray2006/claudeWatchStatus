@@ -2,37 +2,17 @@ import SwiftUI
 
 struct SettingsView: View {
     @StateObject private var prefs = HapticPrefs.shared
-    @StateObject private var keepAlive = KeepAliveManager.shared
     @StateObject private var workoutKeepAlive = WorkoutKeepAliveManager.shared
     @Environment(\.dismiss) private var dismiss
-    @State private var keepAliveOn: Bool = KeepAliveManager.shared.isEnabled
     @State private var workoutKeepAliveOn: Bool = WorkoutKeepAliveManager.shared.isEnabled
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Toggle(isOn: $keepAliveOn) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Extended runtime")
-                                .font(.system(.body, weight: .medium))
-                            Text(keepAlive.isActive ? "Running" : "Off")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .onChange(of: keepAliveOn) { _, newValue in
-                        keepAlive.isEnabled = newValue
-                    }
-                    NavigationLink {
-                        KeepAliveLogView()
-                    } label: {
-                        Label("Runtime log", systemImage: "list.bullet.rectangle")
-                    }
-
                     Toggle(isOn: $workoutKeepAliveOn) {
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Workout session")
+                            Text("Keep app alive")
                                 .font(.system(.body, weight: .medium))
                             Text(workoutKeepAlive.isActive ? "Running" : "Off")
                                 .font(.caption2)
@@ -56,7 +36,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Reliability").textCase(nil)
                 } footer: {
-                    Text("Two independent keep-alive mechanisms — enable either or both. Extended runtime is lightweight but the OS may suppress it after a few hours. Workout session is reliable but shows the green workout indicator on the watch face and uses noticeably more battery.")
+                    Text("Runs an indoor workout session in the background so wrist taps fire even when the app is closed. Watch face shows a green workout indicator while active. Higher battery use.")
                         .font(.caption2)
                 }
 

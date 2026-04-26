@@ -2,21 +2,19 @@ import Foundation
 import HealthKit
 import WatchKit
 
-/// Alternate keep-alive mechanism using `HKWorkoutSession` with
-/// `HKWorkoutActivityType.other`. Independent of `KeepAliveManager`
-/// (extended runtime) — they can be enabled simultaneously or separately.
+/// Keep-alive using `HKWorkoutSession` with `HKWorkoutActivityType.other`.
+/// The only watchOS API that grants reliable indefinite background runtime
+/// to a non-fitness app — chained `WKExtendedRuntimeSession` was tried
+/// previously and degraded after a few hours via `.suppressedBySystem`.
 ///
-/// Trade-offs vs extended runtime:
-///   + Indefinite background runtime; sessions don't terminate via
-///     `.suppressedBySystem` the way extended runtime sessions do.
+/// Costs (acknowledged in Settings footer):
 ///   - Watch face shows green workout indicator while active.
 ///   - Wrist-raise auto-launches Cued instead of returning to clock.
 ///   - Always-On display shows our app dimmed instead of the watch face.
-///   - HealthKit authorization required; battery cost noticeably higher
-///     (workout subsystem keeps HR sensor warm at ~1Hz).
+///   - HealthKit authorization required.
+///   - Higher battery (workout subsystem keeps HR sensor warm at ~1Hz).
 ///
-/// Off by default; user opts in via Settings when extended-runtime
-/// degrades or when reliability is more important than UI tidiness.
+/// Off by default; user opts in via Settings.
 @MainActor
 final class WorkoutKeepAliveManager: NSObject, ObservableObject {
     static let shared = WorkoutKeepAliveManager()

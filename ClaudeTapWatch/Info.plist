@@ -25,7 +25,6 @@
 	<key>WKBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
-		<string>physical-therapy</string>
 		<string>workout-processing</string>
 	</array>
 	<key>NSHealthShareUsageDescription</key>

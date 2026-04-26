@@ -86,10 +86,9 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     func applicationDidBecomeActive() {
         print("DID_BECOME_ACTIVE")
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
-        // Re-arm both keep-alive mechanisms if their respective toggles are
-        // on. Both must be re-armed from foreground if they died in
-        // background (Apple constraint). Either or both may be active.
-        KeepAliveManager.shared.resumeIfEnabled()
+        // Re-arm the workout keep-alive if user has it enabled. Workout
+        // sessions must be started from foreground (Apple constraint), so
+        // this lifecycle hook is the recovery point.
         WorkoutKeepAliveManager.shared.resumeIfEnabled()
     }
 
@@ -114,7 +113,6 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
         let pushTime = Self.pushTimestamp(from: userInfo)
         print("DID_RECEIVE_REMOTE status=\(raw ?? "<none>") pushTs=\(pushTime?.timeIntervalSince1970 ?? 0)")
         PushEventLog.record(.backgroundDelivered, detail: raw ?? "<none>")
-        KeepAliveManager.shared.markActivity()
         if let raw, let state = TapState(rawValue: raw) {
             StateStore.shared.updateState(state, pushTimestamp: pushTime)
             await playHapticDebounced(for: state)
@@ -147,7 +145,6 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate, @u
             MainActor.assumeIsolated {
                 PushEventLog.record(.foregroundDelivered, detail: raw)
                 StateStore.shared.updateState(state, pushTimestamp: pushTime)
-                KeepAliveManager.shared.markActivity()
             }
             // Play our chosen haptic explicitly — the system suppresses
             // notification haptics in Notification Center Only mode, so we
@@ -231,7 +228,6 @@ final class ComplicationPushDelegate: NSObject, PKPushRegistryDelegate {
         Task { @MainActor in
             PushEventLog.record(.complicationDelivered, detail: raw)
             StateStore.shared.updateState(state, pushTimestamp: pushTime)
-            KeepAliveManager.shared.markActivity()
             await playHapticDebounced(for: state)
         }
         completion()
