@@ -25,13 +25,8 @@
 	<key>WKBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
-		<string>workout-processing</string>
 		<string>physical-therapy</string>
 	</array>
-	<key>NSHealthShareUsageDescription</key>
-	<string>Cued runs a workout session in the background as an alternative way to keep the app alive between pushes.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>Cued runs a workout session in the background as an alternative way to keep the app alive between pushes.</string>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.fm.claudetap</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>

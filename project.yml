@@ -56,10 +56,7 @@ targets:
         WKRunsIndependentlyOfCompanionApp: true
         WKBackgroundModes:
           - remote-notification
-          - workout-processing
           - physical-therapy
-        NSHealthShareUsageDescription: Cued runs a workout session in the background as an alternative way to keep the app alive between pushes.
-        NSHealthUpdateUsageDescription: Cued runs a workout session in the background as an alternative way to keep the app alive between pushes.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.fm.claudetap.watchapp

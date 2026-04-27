@@ -2,44 +2,17 @@ import SwiftUI
 
 struct SettingsView: View {
     @StateObject private var prefs = HapticPrefs.shared
-    @StateObject private var workoutKeepAlive = WorkoutKeepAliveManager.shared
     @StateObject private var keepAlive = KeepAliveManager.shared
     @Environment(\.dismiss) private var dismiss
-    @State private var workoutKeepAliveOn: Bool = WorkoutKeepAliveManager.shared.isEnabled
     @State private var keepAliveOn: Bool = KeepAliveManager.shared.isEnabled
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    Toggle(isOn: $workoutKeepAliveOn) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Workout session")
-                                .font(.system(.body, weight: .medium))
-                            Text(workoutKeepAlive.isActive ? "Running" : "Off")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .onChange(of: workoutKeepAliveOn) { _, newValue in
-                        workoutKeepAlive.isEnabled = newValue
-                    }
-                    NavigationLink {
-                        WorkoutLogView()
-                    } label: {
-                        Label("Workout log", systemImage: "list.bullet.rectangle")
-                    }
-                } header: {
-                    Text("Reliable (HKWorkoutSession)").textCase(nil)
-                } footer: {
-                    Text("Background workout. Reliable indefinitely. Watch face shows green workout indicator and auto-launches Cued on wrist-raise. Higher battery use.")
-                        .font(.caption2)
-                }
-
-                Section {
                     Toggle(isOn: $keepAliveOn) {
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("Extended runtime")
+                            Text("Keep app alive")
                                 .font(.system(.body, weight: .medium))
                             Text(keepAlive.isActive ? "Running" : "Off")
                                 .font(.caption2)
@@ -54,23 +27,15 @@ struct SettingsView: View {
                     } label: {
                         Label("Runtime log", systemImage: "list.bullet.rectangle")
                     }
-                } header: {
-                    Text("Lightweight (physical-therapy)").textCase(nil)
-                } footer: {
-                    Text("Single 1-hour extended-runtime session. No watch-face UI intrusion, lower battery. Each session lasts at most an hour — re-open the app to start a new one. Apple's API doesn't allow chaining sessions from the background.")
-                        .font(.caption2)
-                }
-
-                Section {
                     NavigationLink {
                         PushLogView()
                     } label: {
                         Label("Push log", systemImage: "list.bullet.rectangle")
                     }
                 } header: {
-                    Text("Diagnostics").textCase(nil)
+                    Text("Reliability").textCase(nil)
                 } footer: {
-                    Text("Records every push delivery and haptic outcome (regardless of which keep-alive is active).")
+                    Text("Single 1-hour extended-runtime session. Each session lasts at most an hour — re-open the app to start a new one. Apple's API doesn't allow chaining sessions from the background.")
                         .font(.caption2)
                 }
 

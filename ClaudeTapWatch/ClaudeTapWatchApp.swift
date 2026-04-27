@@ -69,12 +69,6 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
         // Recover state from any notifications delivered while the app was suspended.
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
 
-        // If the previous app process crashed while a workout keep-alive
-        // session was active, the OS kept it alive — re-adopt it now rather
-        // than starting a fresh one (which would leave the orphaned session
-        // running invisibly).
-        WorkoutKeepAliveManager.shared.tryRecoverActiveSession()
-
         // Register PKPushRegistry for the complication wake channel. The
         // delegate handles incoming complication pushes (state cache updates +
         // haptic) and uploads the resulting token to the backend so it can
@@ -92,9 +86,8 @@ final class ExtensionDelegate: NSObject, WKApplicationDelegate {
     func applicationDidBecomeActive() {
         print("DID_BECOME_ACTIVE")
         Task { await StateStore.shared.syncFromDeliveredNotifications() }
-        // Re-arm both keep-alive mechanisms if their respective toggles are
-        // on. Both must be started from foreground (Apple constraint).
-        WorkoutKeepAliveManager.shared.resumeIfEnabled()
+        // Re-arm the extended runtime keep-alive if the user has it enabled.
+        // Apple requires sessions to start from foreground.
         KeepAliveManager.shared.resumeIfEnabled()
     }
 
